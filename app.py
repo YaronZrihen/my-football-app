@@ -59,44 +59,86 @@ with st.sidebar:
 if menu == "מילוי פרטים":
     st.title("📝 עדכון פרטים ודירוג")
     
-    # וידוא שכל השמות הם מחרוזות טקסט תקינות לפני המיון
-    player_names = sorted([str(p['name']) for p in st.session_state.players if 'name' in p and pd.notna(p['name'])]) if st.session_state.players else []
-    name_options = ["--- בחר שם ---", "🆕 שחקן חדש"] + player_names
+    # 1. הכנת רשימה ממוינת
+    if st.session_state.players:
+        player_names = sorted([str(p['name']) for p in st.session_state.players if 'name' in p and pd.notna(p['name'])])
+    else:
+        player_names = []
+        
+    name_options = ["--- בחר שם מהרשימה ---", "🆕 שחקן חדש"] + player_names
     selected_name = st.selectbox("מי אתה?", options=name_options)
     
     final_name = ""
     curr_p_data = None
+    
     if selected_name == "🆕 שחקן חדש":
-        final_name = st.text_input("הקלד שם מלא:")
-    elif selected_name != "--- בחר שם ---":
+        final_name = st.text_input("הקלד את שמך המלא:")
+    elif selected_name != "--- בחר שם מהרשימה ---":
         final_name = selected_name
         curr_p_data = next((p for p in st.session_state.players if p['name'] == final_name), None)
 
+    # 2. הטופס (כאן התיקון)
     if final_name:
-        with st.form("p_form"):
-            st.subheader(f"פרופיל: {final_name}")
+        # יצירת מפתח ייחודי לטופס כדי למנוע התנגשויות
+        with st.form(key=f"form_{final_name}"):
+            st.subheader(f"עריכת פרופיל: {final_name}")
+            
+            # שדות הקלט
             b_year = st.number_input("שנת לידה:", 1950, 2026, int(curr_p_data['birth_year']) if curr_p_data and 'birth_year' in curr_p_data else 1995)
             roles = ["שוער", "בלם", "מגן ימני", "מגן שמאלי", "קשר", "כנף", "חלוץ"]
             def_roles = curr_p_data['pos'].split(", ") if curr_p_data and 'pos' in curr_p_data else []
             selected_pos = st.pills("תפקידים:", options=roles, selection_mode="multi", default=def_roles)
             rate = st.slider("דירוג עצמי:", 1.0, 10.0, float(curr_p_data['rating']) if curr_p_data and 'rating' in curr_p_data else 5.0)
             
-            p_ratings = json.loads(curr_p_data['peer_ratings']) if curr_p_data and 'peer_ratings' in curr_p_data and isinstance(curr_p_data['peer_ratings'], str) else {}
+            st.divider()
+            st.write("**⭐ דרגו את החברים:**")
+            
+            # הכנת מילון הדירוגים
+            import json
+            p_ratings = {}
+            if curr_p_data and 'peer_ratings' in curr_p_data and isinstance(curr_p_data['peer_ratings'], str):
+                try:
+                    p_ratings = json.loads(curr_p_data['peer_ratings'])
+                except:
+                    p_ratings = {}
 
-            st.write("**⭐ דרג חברים:**")
+            # הצגת סליידר לכל שחקן אחר
             for p in st.session_state.players:
                 if p['name'] != final_name:
                     p_val = p_ratings.get(p['name'], 5)
-                    p_ratings[p['name']] = st.select_slider(f"רמה של {p['name']}:", options=list(range(1, 11)), value=int(p_val), key=f"r_{p['name']}")
+                    p_ratings[p['name']] = st.select_slider(
+                        f"רמה של {p['name']}:", 
+                        options=list(range(1, 11)), 
+                        value=int(p_val), 
+                        key=f"rate_input_{p['name']}"
+                    )
 
-            if st.form_submit_button("שמור"):
-                new_entry = {"name": final_name, "birth_year": b_year, "pos": ", ".join(selected_pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
-                idx = next((i for i, p in enumerate(st.session_state.players) if p['name'] == final_name), None)
-                if idx is not None: st.session_state.players[idx] = new_entry
-                else: st.session_state.players.append(new_entry)
-                save_data(st.session_state.players)
-                st.success("נשמר!")
-                st.rerun()
+            # הכפתור שחייב להיות בתוך ה-WITH (זה פותר את השגיאה שלך)
+            submitted = st.form_submit_button("שמור ועדכן נתונים 💾", use_container_width=True)
+            
+            if submitted:
+                if not selected_pos:
+                    st.error("חובה לבחור לפחות תפקיד אחד!")
+                else:
+                    new_entry = {
+                        "name": final_name, 
+                        "birth_year": b_year, 
+                        "pos": ", ".join(selected_pos), 
+                        "rating": rate, 
+                        "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
+                    }
+                    
+                    # עדכון המאגר
+                    idx = next((i for i, p in enumerate(st.session_state.players) if p['name'] == final_name), None)
+                    if idx is not None:
+                        st.session_state.players[idx] = new_entry
+                    else:
+                        st.session_state.players.append(new_entry)
+                    
+                    # שמירה לגוגל שיטס
+                    save_data(st.session_state.players)
+                    st.success(f"הנתונים של {final_name} נשמרו בהצלחה!")
+                    st.balloons()
 
 # --- 5. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר שחקנים":
@@ -164,5 +206,6 @@ elif menu == "חלוקת קבוצות":
         msg = "⚽ *חלוקה:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_a])
         msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_b])
         st.markdown(f'[לחץ לשליחה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
 
