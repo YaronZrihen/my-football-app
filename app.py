@@ -80,8 +80,13 @@ if menu == "שחקן":
         
         # בחירת תפקידים (Pills חזרו!)
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
-        def_roles = curr['pos'].split(", ") if curr and 'pos' in curr else []
-        selected_pos = st.pills("תפקידים (בחר כמה):", roles, selection_mode="multi", default=def_roles)
+        # בדיקה שהתפקיד קיים, שהוא לא ריק (NaN) ושהוא אכן מחרוזת טקסט
+        if curr and 'pos' in curr and pd.notna(curr['pos']) and isinstance(curr['pos'], str):
+            def_roles = curr['pos'].split(", ")
+        else:
+            def_roles = []
+            
+        selected_pos = st.pills("תפקידים (בחר כמה):", roles, selection_mode="multi", default=def_roles)        selected_pos = st.pills("תפקידים (בחר כמה):", roles, selection_mode="multi", default=def_roles)
         
         # דירוג
         rate = st.slider("דרג את היכולת שלך (1-10):", 1.0, 10.0, float(curr['rating']) if curr and 'rating' in curr else 5.0)
@@ -164,3 +169,4 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות למשחק:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 שלח חלוקה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
