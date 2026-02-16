@@ -22,7 +22,7 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # הכתובת של הגיליון שלך (שים לב שהשיתוף מוגדר ל-Anyone with the link)
-SHEET_URL = "הדבק_כאן_את_הלינק_שלך"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1oexl9m3FA1T8zWOkTOSUuhBjBm2c5nZVIRqfNjtLS0M/edit?usp=sharing"
 
 def load_data():
     try:
@@ -161,3 +161,4 @@ elif menu == "חלוקת קבוצות":
         msg = "⚽ *חלוקה:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_a])
         msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_b])
         st.markdown(f'[לחץ לשליחה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
