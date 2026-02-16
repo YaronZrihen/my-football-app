@@ -94,24 +94,24 @@ if menu == "מילוי פרטים":
             # הכפתור - חייב להיות בתוך הבלוק (מוזח פנימה)
             submitted = st.form_submit_button("שמור נתונים")
             
-                if submitted:
-                    if not selected_pos:
-                        st.error("בחר תפקיד")
-                    else:
-                        new_entry = {
-                            "name": final_name, 
-                            "birth_year": b_year, 
-                            "pos": ", ".join(selected_pos), 
-                            "rating": rate, 
-                            "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
-                        }
-                        idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
-                        if idx is not None: st.session_state.players[idx] = new_entry
-                        else: st.session_state.players.append(new_entry)
-                        
-                        save_data(st.session_state.players)
-                        st.success("נשמר בהצלחה!")
-                        st.balloons()
+            if submitted:
+                if not selected_pos:
+                    st.error("בחר תפקיד")
+                else:
+                    new_entry = {
+                        "name": final_name, 
+                        "birth_year": b_year, 
+                        "pos": ", ".join(selected_pos), 
+                        "rating": rate, 
+                        "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
+                    }
+                    idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
+                    if idx is not None: st.session_state.players[idx] = new_entry
+                    else: st.session_state.players.append(new_entry)
+                    
+                    save_data(st.session_state.players)
+                    st.success("נשמר בהצלחה!")
+                    st.balloons()
 
 # --- 5. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר שחקנים":
@@ -166,4 +166,3 @@ elif menu == "חלוקת קבוצות":
                 st.subheader(label)
                 for p in t_list:
                     st.info(f"**{p['name']}**\n\n{p['pos']}")
-
