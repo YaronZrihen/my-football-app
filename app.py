@@ -5,187 +5,138 @@ import random
 import urllib.parse
 import json
 
-# --- 1. עיצוב RTL והגדרות ---
-st.set_page_config(page_title="ניהול כדורגל מקצועי", layout="wide")
-st.markdown("""
-    <style>
-    .stApp, [data-testid="stSidebar"], .main { direction: rtl; text-align: right; }
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] { direction: rtl !important; text-align: right !important; }
-    h1, h2, h3, h4, p, label, span { text-align: right !important; direction: rtl !important; }
-    .stButton button { width: 100%; border-radius: 8px; }
-    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 1. עיצוב RTL ---
+st.set_page_config(page_title="ניהול כדורגל", layout="wide")
+st.markdown("""<style>.stApp { direction: rtl; text-align: right; }</style>""", unsafe_allow_html=True)
 
-# --- 2. חיבור לגוגל שיטס ---
+# --- 2. חיבור ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
         df = conn.read(ttl="0")
-        df = df.dropna(subset=['name'])
-        return df.to_dict(orient='records')
+        return df.dropna(subset=['name']).to_dict(orient='records')
     except: return []
 
 def save_data(players_list):
-    try:
-        df = pd.DataFrame(players_list)
-        conn.update(data=df)
-        st.cache_data.clear()
-        return True
-    except Exception as e:
-        st.error(f"שגיאה בשמירה לגוגל: {e}")
-        return False
+    df = pd.DataFrame(players_list)
+    conn.update(data=df)
+    st.cache_data.clear()
 
 if 'players' not in st.session_state:
     st.session_state.players = load_data()
 
-# --- 3. לוגיקה לחישוב ציונים ---
+# --- 3. פונקציית ציונים (החזרתי אותה!) ---
 def get_final_score(player_name):
     player = next((p for p in st.session_state.players if p['name'] == player_name), None)
-    if not player: return 0.0, 0.0, 0
-    
+    if not player: return 5.0, 0.0, 0
     self_rate = float(player.get('rating', 5.0))
     peer_scores = []
-    
-    # איסוף כל הדירוגים ששחקנים אחרים נתנו לו
     for p in st.session_state.players:
         try:
-            p_ratings = json.loads(p.get('peer_ratings', '{}'))
-            if player_name in p_ratings:
-                peer_scores.append(float(p_ratings[player_name]))
+            r = json.loads(p.get('peer_ratings', '{}'))
+            if player_name in r: peer_scores.append(float(r[player_name]))
         except: continue
-    
-    avg_peers = sum(peer_scores) / len(peer_scores) if peer_scores else 0.0
-    final = (self_rate + avg_peers) / 2 if avg_peers > 0 else self_rate
-    return final, avg_peers, len(peer_scores)
+    avg_p = sum(peer_scores)/len(peer_scores) if peer_scores else 0.0
+    final = (self_rate + avg_p) / 2 if avg_p > 0 else self_rate
+    return final, avg_p, len(peer_scores)
 
-# --- 4. תפריט Sidebar ---
+# --- 4. תפריט ---
 with st.sidebar:
-    st.title("⚽ ניהול משחקים")
-    access = st.radio("מצב גישה:", ["שחקן", "מנהל (Admin)"])
+    st.title("⚽ תפריט")
+    access = st.radio("גישה:", ["שחקן", "מנהל"])
     menu = "שחקן"
-    if access == "מנהל (Admin)":
-        if st.text_input("סיסמה:", type="password") == "1234":
-            menu = st.selectbox("בחר פעולה:", ["ניהול מאגר", "חלוקת קבוצות"])
-        else: st.warning("הכנס סיסמה לגישה לניהול")
+    if access == "מנהל" and st.text_input("סיסמה:", type="password") == "1234":
+        menu = st.selectbox("פעולה:", ["ניהול", "חלוקה"])
 
-# --- 5. דף שחקן ---
+# --- 5. דף שחקן (התיקון הקריטי כאן) ---
 if menu == "שחקן":
-    st.title("📝 עדכון פרטים ודירוג חברים")
-    names = sorted([str(p['name']) for p in st.session_state.players if 'name' in p]) if st.session_state.players else []
-    sel = st.selectbox("בחר את השם שלך:", ["---", "🆕 שחקן חדש"] + names)
+    st.title("📝 עדכון פרטים")
+    names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
+    sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names)
     
-    final_name = ""
+    name_to_edit = ""
     curr = None
-    if sel == "🆕 שחקן חדש":
-        final_name = st.text_input("שם מלא:")
+    if sel == "🆕 חדש": name_to_edit = st.text_input("שם מלא:")
     elif sel != "---":
-        final_name = sel
-        curr = next((p for p in st.session_state.players if p['name'] == final_name), None)
+        name_to_edit = sel
+        curr = next((p for p in st.session_state.players if p['name'] == name_to_edit), None)
 
-    if final_name:
-        with st.form(key=f"form_{final_name}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
-                rate = st.slider("דירוג היכולת שלך (1-10):", 1.0, 10.0, float(curr['rating']) if curr and 'rating' in curr else 5.0)
-            with col2:
-                roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
-                def_roles = curr['pos'].split(", ") if curr and 'pos' in curr else []
-                selected_pos = st.multiselect("תפקידים:", roles, default=def_roles)
-
-            st.divider()
-            st.subheader("⭐ דרג את החברים שלך")
-            st.caption("הדירוג שלך עוזר לחלק את הקבוצות בצורה מאוזנת (הם לא יראו מה נתת להם)")
+    if name_to_edit:
+        # הטופס מתחיל כאן
+        with st.form(key="main_player_form"):
+            st.subheader(f"פרופיל: {name_to_edit}")
             
-            peer_ratings = {}
-            if curr and 'peer_ratings' in curr and isinstance(curr['peer_ratings'], str):
-                try: peer_ratings = json.loads(curr['peer_ratings'])
-                except: peer_ratings = {}
+            # שדות קלט פשוטים ללא עמודות כדי למנוע את השגיאה
+            year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr else 1995)
+            pos = st.text_input("תפקידים (קשר, בלם וכו'):", curr['pos'] if curr else "")
+            rate = st.slider("דירוג אישי (1-10):", 1.0, 10.0, float(curr['rating']) if curr else 5.0)
+            
+            st.write("---")
+            st.write("**⭐ דרג חברים:**")
+            
+            p_ratings = {}
+            try: p_ratings = json.loads(curr['peer_ratings']) if curr else {}
+            except: p_ratings = {}
 
-            # דירוג לכל שחקן אחר
             for p in st.session_state.players:
-                if p['name'] != final_name:
-                    peer_ratings[p['name']] = st.select_slider(
+                if p['name'] != name_to_edit:
+                    p_ratings[p['name']] = st.select_slider(
                         f"רמה של {p['name']}:", 
                         options=list(range(1, 11)), 
-                        value=int(peer_ratings.get(p['name'], 5)), 
+                        value=int(p_ratings.get(p['name'], 5)),
                         key=f"r_{p['name']}"
                     )
 
-            if st.form_submit_button("שמור ועדכן הכל"):
-                new_p = {
-                    "name": final_name, "birth_year": year, 
-                    "pos": ", ".join(selected_pos), "rating": rate, 
-                    "peer_ratings": json.dumps(peer_ratings, ensure_ascii=False)
-                }
-                idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
-                if idx is not None: st.session_state.players[idx] = new_p
-                else: st.session_state.players.append(new_p)
-                
-                if save_data(st.session_state.players):
-                    st.success("הנתונים עודכנו בהצלחה בגוגל שיטס!")
-                    st.balloons()
-                    st.rerun()
-
-# --- 6. ניהול מאגר (Admin) ---
-elif menu == "ניהול מאגר":
-    st.title("👤 ניהול וציונים")
-    
-    st.write("ציונים סופיים משקללים דירוג עצמי + דירוג חברים")
-    
-    for i, p in enumerate(st.session_state.players):
-        final_s, avg_p, count_p = get_final_score(p['name'])
-        
-        with st.container(border=True):
-            c = st.columns([2, 1, 1, 1, 0.5])
-            c[0].markdown(f"**{p['name']}** \n<small>🎂 {2026-int(p['birth_year'])} | 🏃 {p['pos']}</small>", unsafe_allow_html=True)
-            c[1].metric("אישי", f"{float(p['rating']):.1f}")
-            c[2].metric("חברים", f"{avg_p:.1f}", f"{count_p} מדרגים")
-            c[3].metric("סופי", f"{final_s:.1f}")
+            # הכפתור - נמצא בשורה נפרדת בתוך ה-with, ללא עמודות!
+            submitted = st.form_submit_button("שמור ועדכן נתונים ✅")
             
-            if c[4].button("🗑️", key=f"del_{i}"):
+            if submitted:
+                new_data = {
+                    "name": name_to_edit, "birth_year": year, 
+                    "pos": pos, "rating": rate, 
+                    "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
+                }
+                idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == name_to_edit), None)
+                if idx is not None: st.session_state.players[idx] = new_data
+                else: st.session_state.players.append(new_data)
+                
+                save_data(st.session_state.players)
+                st.success("נשמר בהצלחה!")
+                st.balloons()
+                st.rerun()
+
+# --- 6. ניהול ---
+elif menu == "ניהול":
+    st.title("👤 מאגר")
+    for i, p in enumerate(st.session_state.players):
+        f, avg, count = get_final_score(p['name'])
+        with st.container(border=True):
+            col = st.columns([3, 1, 1])
+            col[0].write(f"**{p['name']}** | {p['pos']}")
+            col[1].write(f"סופי: {f:.1f}")
+            if col[2].button("🗑️", key=f"d_{i}"):
                 st.session_state.players.pop(i)
                 save_data(st.session_state.players)
                 st.rerun()
 
-# --- 7. חלוקת קבוצות חכמה ---
-elif menu == "חלוקת קבוצות":
+# --- 7. חלוקה ---
+elif menu == "חלוקה":
     st.title("📋 חלוקה מאוזנת")
-    
-    # חישוב ציונים לכולם
-    pool_data = []
+    pool = []
     for p in st.session_state.players:
-        final_s, _, _ = get_final_score(p['name'])
-        pool_data.append({**p, "final_s": final_s})
-    
-    selected_names = st.multiselect("מי משחק היום?", [p['name'] for p in pool_data])
-    
-    if st.button("חלק קבוצות 🚀"):
-        active_players = [p for p in pool_data if p['name'] in selected_names]
-        if len(active_players) < 2:
-            st.error("צריך לפחות 2 שחקנים...")
-        else:
-            # מיון לפי ציון וחלוקת נחש (Snake Draft) לאיזון מקסימלי
-            active_players.sort(key=lambda x: x['final_s'], reverse=True)
-            team_a, team_b = [], []
-            for i, p in enumerate(active_players):
-                if i % 2 == 0: team_a.append(p)
-                else: team_b.append(p)
-            
-            st.divider()
-            col1, col2 = st.columns(2)
-            
-            for t_list, label, col, icon in [(team_a, "⚪ לבן", col1, "⚪"), (team_b, "⚫ שחור", col2, "⚫")]:
-                with col:
-                    avg_team = sum(p['final_s'] for p in t_list) / len(t_list)
-                    st.subheader(f"{label} (ממוצע: {avg_team:.1f})")
-                    for p in t_list:
-                        st.info(f"**{p['name']}** ({p['pos']})")
-
-            # וואטסאפ
-            msg = f"⚽ *הקבוצות מוכנות!*\n\n⚪ *לבן:* \n" + "\n".join([f"- {p['name']}" for p in team_a])
-            msg += f"\n\n⚫ *שחור:* \n" + "\n".join([f"- {p['name']}" for p in team_b])
-            url = f"https://wa.me/?text={urllib.parse.quote(msg)}"
-            st.markdown(f'[📲 שלח חלוקה בוואטסאפ]({url})')
+        f, _, _ = get_final_score(p['name'])
+        pool.append({**p, "f": f})
+        
+    selected = st.multiselect("מי כאן?", [p['name'] for p in pool])
+    if st.button("חלק קבוצות"):
+        active = [p for p in pool if p['name'] in selected]
+        active.sort(key=lambda x: x['f'], reverse=True)
+        t1, t2 = [], []
+        for i, p in enumerate(active):
+            if i % 2 == 0: t1.append(p)
+            else: t2.append(p)
+        
+        c1, c2 = st.columns(2)
+        c1.write("⚪ **לבן:**\n" + "\n".join([f"- {p['name']}" for p in t1]))
+        c2.write("⚫ **שחור:**\n" + "\n".join([f"- {p['name']}" for p in t2]))
