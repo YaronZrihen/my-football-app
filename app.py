@@ -27,9 +27,11 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1oexl9m3FA1T8zWOkTOSUuhBjBm2
 def load_data():
     try:
         df = conn.read(spreadsheet=SHEET_URL, ttl="0")
-        # הפיכת הנתונים חזרה לרשימה
+        # ניקוי שורות ריקות לגמרי כדי שלא יפילו את המערכת
+        df = df.dropna(subset=['name'])
         return df.to_dict(orient='records')
-    except:
+    except Exception as e:
+        # אם הגיליון ריק לגמרי, נחזיר רשימה ריקה
         return []
 
 def save_data(players_list):
@@ -57,7 +59,8 @@ with st.sidebar:
 if menu == "מילוי פרטים":
     st.title("📝 עדכון פרטים ודירוג")
     
-    player_names = sorted([p['name'] for p in st.session_state.players]) if st.session_state.players else []
+    # וידוא שכל השמות הם מחרוזות טקסט תקינות לפני המיון
+    player_names = sorted([str(p['name']) for p in st.session_state.players if 'name' in p and pd.notna(p['name'])]) if st.session_state.players else []
     name_options = ["--- בחר שם ---", "🆕 שחקן חדש"] + player_names
     selected_name = st.selectbox("מי אתה?", options=name_options)
     
@@ -161,4 +164,5 @@ elif menu == "חלוקת קבוצות":
         msg = "⚽ *חלוקה:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_a])
         msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in st.session_state.team_b])
         st.markdown(f'[לחץ לשליחה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
