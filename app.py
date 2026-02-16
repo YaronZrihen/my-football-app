@@ -91,18 +91,24 @@ if menu == "שחקן":
         rate = st.slider("דרג את היכולת שלך (1-10):", 1.0, 10.0, float(curr['rating']) if curr and 'rating' in curr else 5.0)
         
         st.divider()
-        st.write("**⭐ דרג חברים:**")
+        st.subheader("⭐ דרג את החברים")
+        st.caption("בחר את רמת השחקן לפי דעתך (1 = חלש, 10 = מקצוען)")
+        
         p_ratings = {}
-        try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
-        except: p_ratings = {}
+        try: 
+            p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr and pd.notna(curr['peer_ratings']) else {}
+        except: 
+            p_ratings = {}
 
         for p in st.session_state.players:
             if p['name'] != final_name:
+                # שימוש ב-select_slider נותן מראה של כפתורי בחירה על ציר
                 p_ratings[p['name']] = st.select_slider(
-                    f"רמה של {p['name']}:", 
-                    options=list(range(1, 11)), 
+                    f"היכולת של **{p['name']}**:",
+                    options=list(range(1, 11)),
                     value=int(p_ratings.get(p['name'], 5)),
-                    key=f"r_{p['name']}"
+                    key=f"r_{p['name']}",
+                    help=f"דרג את {p['name']} מ-1 עד 10"
                 )
 
         # שימוש בכפתור רגיל במקום Submit Button
@@ -168,6 +174,7 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות למשחק:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 שלח חלוקה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
 
 
