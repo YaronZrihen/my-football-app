@@ -170,3 +170,4 @@ elif menu == "חלוקת קבוצות":
             msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 שלח חלוקה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
 
+
