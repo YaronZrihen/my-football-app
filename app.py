@@ -12,9 +12,7 @@ st.markdown("""
     .stApp, [data-testid="stSidebar"], .main { direction: rtl; text-align: right; }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] { direction: rtl !important; text-align: right !important; }
     h1, h2, h3, h4, p, label, span { text-align: right !important; direction: rtl !important; }
-    .stButton button { width: 100%; border-radius: 8px; }
-    /* עיצוב כפתורי ה-Pills שיהיו ברורים */
-    [data-testid="stBaseButton-pills"] { background-color: #f0f2f6; }
+    .stButton button { width: 100%; border-radius: 8px; background-color: #2e7d32; color: white; height: 3em; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -55,10 +53,12 @@ with st.sidebar:
     st.title("⚽ תפריט")
     access = st.radio("מצב גישה:", ["שחקן", "מנהל"])
     menu = "שחקן"
-    if access == "מנהל" and st.text_input("סיסמה:", type="password") == "1234":
-        menu = st.selectbox("פעולה:", ["ניהול מאגר", "חלוקת קבוצות"])
+    if access == "מנהל":
+        pwd = st.text_input("סיסמה:", type="password")
+        if pwd == "1234":
+            menu = st.selectbox("פעולה:", ["ניהול מאגר", "חלוקת קבוצות"])
 
-# --- 5. דף שחקן (עם ה-Pills שחזרו!) ---
+# --- 5. דף שחקן (ללא st.form - פותר את השגיאה לנצח) ---
 if menu == "שחקן":
     st.title("📝 עדכון פרטים")
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
@@ -66,61 +66,61 @@ if menu == "שחקן":
     
     final_name = ""
     curr = None
-    if sel == "🆕 שחקן חדש": final_name = st.text_input("הקלד שם מלא:")
+    if sel == "🆕 שחקן חדש": 
+        final_name = st.text_input("הקלד שם מלא:")
     elif sel != "---":
         final_name = sel
         curr = next((p for p in st.session_state.players if p['name'] == final_name), None)
 
     if final_name:
-        with st.form(key="player_form_v3"):
-            st.subheader(f"פרופיל: {final_name}")
-            
-            # שנת לידה
-            year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr else 1995)
-            
-            # בחירת תפקידים - הפונקציונליות שחזרה!
-            roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
-            def_roles = curr['pos'].split(", ") if curr and 'pos' in curr else []
-            selected_pos = st.pills("תפקידים (בחר כמה):", roles, selection_mode="multi", default=def_roles)
-            
-            # דירוג
-            rate = st.slider("דרג את היכולת שלך (1-10):", 1.0, 10.0, float(curr['rating']) if curr else 5.0)
-            
-            st.divider()
-            st.write("**⭐ דרג חברים:**")
-            p_ratings = {}
-            try: p_ratings = json.loads(curr['peer_ratings']) if curr else {}
-            except: p_ratings = {}
+        st.subheader(f"פרופיל: {final_name}")
+        
+        # שנת לידה
+        year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
+        
+        # בחירת תפקידים (Pills חזרו!)
+        roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
+        def_roles = curr['pos'].split(", ") if curr and 'pos' in curr else []
+        selected_pos = st.pills("תפקידים (בחר כמה):", roles, selection_mode="multi", default=def_roles)
+        
+        # דירוג
+        rate = st.slider("דרג את היכולת שלך (1-10):", 1.0, 10.0, float(curr['rating']) if curr and 'rating' in curr else 5.0)
+        
+        st.divider()
+        st.write("**⭐ דרג חברים:**")
+        p_ratings = {}
+        try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
+        except: p_ratings = {}
 
-            for p in st.session_state.players:
-                if p['name'] != final_name:
-                    p_ratings[p['name']] = st.select_slider(
-                        f"רמה של {p['name']}:", 
-                        options=list(range(1, 11)), 
-                        value=int(p_ratings.get(p['name'], 5)),
-                        key=f"r_{p['name']}"
-                    )
+        for p in st.session_state.players:
+            if p['name'] != final_name:
+                p_ratings[p['name']] = st.select_slider(
+                    f"רמה של {p['name']}:", 
+                    options=list(range(1, 11)), 
+                    value=int(p_ratings.get(p['name'], 5)),
+                    key=f"r_{p['name']}"
+                )
 
-            # כפתור שמירה
-            if st.form_submit_button("שמור ועדכן הכל ✅"):
-                if not selected_pos:
-                    st.error("חובה לבחור לפחות תפקיד אחד!")
-                else:
-                    new_p = {
-                        "name": final_name, "birth_year": year, 
-                        "pos": ", ".join(selected_pos), "rating": rate, 
-                        "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
-                    }
-                    idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
-                    if idx is not None: st.session_state.players[idx] = new_p
-                    else: st.session_state.players.append(new_p)
-                    
-                    save_data(st.session_state.players)
-                    st.success("נשמר בהצלחה!")
-                    st.balloons()
-                    st.rerun()
+        # שימוש בכפתור רגיל במקום Submit Button
+        if st.button("שמור ועדכן הכל ✅"):
+            if not selected_pos:
+                st.error("חובה לבחור לפחות תפקיד אחד!")
+            else:
+                new_p = {
+                    "name": final_name, "birth_year": year, 
+                    "pos": ", ".join(selected_pos), "rating": rate, 
+                    "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)
+                }
+                idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
+                if idx is not None: st.session_state.players[idx] = new_p
+                else: st.session_state.players.append(new_p)
+                
+                save_data(st.session_state.players)
+                st.success("נשמר בהצלחה!")
+                st.balloons()
+                st.rerun()
 
-# --- 6. ניהול מאגר (Admin) ---
+# --- 6. ניהול מאגר ---
 elif menu == "ניהול מאגר":
     st.title("👤 מאגר וציונים")
     for i, p in enumerate(st.session_state.players):
@@ -136,7 +136,7 @@ elif menu == "ניהול מאגר":
                 save_data(st.session_state.players)
                 st.rerun()
 
-# --- 7. חלוקת קבוצות (עם שליחה לוואטסאפ) ---
+# --- 7. חלוקת קבוצות ---
 elif menu == "חלוקת קבוצות":
     st.title("📋 חלוקה מאוזנת")
     pool = []
@@ -144,7 +144,7 @@ elif menu == "חלוקת קבוצות":
         f, _, _ = get_final_score(p['name'])
         pool.append({**p, "f": f})
         
-    selected = st.multiselect("מי משחק היום?", [p['name'] for p in pool])
+    selected = st.multiselect("מי כאן?", [p['name'] for p in pool])
     if st.button("חלק קבוצות 🚀"):
         active = [p for p in pool if p['name'] in selected]
         if len(active) > 1:
@@ -161,7 +161,6 @@ elif menu == "חלוקת קבוצות":
             c2.subheader("⚫ שחור")
             c2.write("\n".join([f"- {p['name']} ({p['pos']})" for p in t2]))
             
-            # הודעת וואטסאפ
             msg = "⚽ *הקבוצות למשחק:*\n\n⚪ *לבן:*\n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ *שחור:*\n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 שלח חלוקה בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
