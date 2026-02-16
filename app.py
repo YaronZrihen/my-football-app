@@ -21,7 +21,7 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # החלף כאן ללינק של הגיליון שלך (לוודא שהגיליון פתוח לצפייה למי שיש לו לינק!)
-SHEET_URL = "הלינק_של_הגיליון_שלך_כאן"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1oexl9m3FA1T8zWOkTOSUuhBjBm2c5nZVIRqfNjtLS0M/edit?usp=sharing"
 
 def load_data():
     try:
@@ -111,3 +111,4 @@ if menu == "מילוי פרטים":
 
 # --- המשך הקוד (ניהול מאגר וחלוקה) נשאר זהה ללוגיקה הקודמת ---
 # (שים לב להשתמש ב-json.loads עבור peer_ratings כשאתה מחשב ציונים)
+
