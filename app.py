@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS (צפוף, RTL, נעילת עמודות) ---
+# --- 1. עיצוב CSS (RTL, צפיפות, נעילת עמודות) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -29,7 +29,7 @@ st.markdown("""
         min-width: 45% !important;
     }
 
-    /* שורת שחקן צפופה */
+    /* שורת שחקן צפופה בחלוקה */
     .p-box {
         background: #2d3748;
         border: 1px solid #4a5568;
@@ -44,17 +44,17 @@ st.markdown("""
     .p-text { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .p-score { color: #22c55e; font-size: 10px; margin-right: 4px; }
 
-    /* כפתור רדיו בשורה אחת */
-    div[data-testid="stMarkdownContainer"] > p { font-size: 14px !important; }
-    div[data-testid="stWidgetLabel"] { margin-bottom: -15px !important; }
-    
-    /* עיצוב רדיו אופקי */
-    div[data-testid="stHorizontalBlock"] div[role="radiogroup"] {
+    /* רדיו אופקי צפוף */
+    div[role="radiogroup"] {
         flex-direction: row !important;
-        gap: 10px !important;
+        gap: 6px !important;
+        justify-content: flex-start;
     }
+    div[data-testid="stWidgetLabel"] p { font-size: 13px !important; margin-bottom: 5px; }
+    
+    /* הפרדה בין שורות דירוג שחקנים */
+    .peer-row { border-bottom: 1px solid #4a5568; padding: 5px 0; }
 
-    /* טבלת מאזן */
     .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
     .stats-table td { border: 1px solid #4a5568; padding: 4px; text-align: center; background: #2d3748; }
     </style>
@@ -153,35 +153,40 @@ elif menu == "עדכון/הרשמה":
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
-        # תפקידים - כפתורי בחירה מרובה (Pills בתוך הטופס)
+        # תפקידים - שחזור הרשימה המקורית
         st.write("תפקידים:")
-        roles = ["הגנה", "קישור", "התקפה", "שוער"]
+        roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         current_roles = p_data.get('roles', []) if p_data else []
-        f_roles = st.pills("בחר תפקידים:", roles, selection_mode="multi", default=current_roles)
+        f_roles = st.pills("בחר תפקידים:", roles_list, selection_mode="multi", default=current_roles)
         
-        # דירוג עצמי - רדיו בשורה אחת
+        # דירוג עצמי - רדיו בשורה
         f_rate = st.radio("דירוג עצמי (1-10):", options=range(1, 11), 
                          index=int(p_data['rating'])-1 if p_data else 4, horizontal=True)
         
-        # דירוג שחקנים אחרים - רדיו בשורה אחת
+        # דירוג שחקנים אחרים - רשימה פתוחה ללא DROPDOWN
         st.write("---")
-        st.write("דירוג שחקנים (בחר שחקן ודרג אותו):")
-        other_names = [n for n in names if n != choice and n != "🆕 שחקן חדש"]
-        peer_target = st.selectbox("דרג את השחקן:", ["---"] + other_names)
-        peer_rate = st.radio("ציון לשחקן:", options=range(1, 11), index=4, horizontal=True)
+        st.write("דרג שחקנים אחרים:")
+        other_players = [p for p in st.session_state.players if p['name'] != f_name]
+        peer_ratings_input = {}
+        
+        existing_peers = json.loads(p_data['peer_ratings']) if p_data and p_data.get('peer_ratings') else {}
 
-        if st.form_submit_button("שמור שינויים ✅"):
+        for op in other_players:
+            op_name = op['name']
+            current_val = existing_peers.get(op_name, 5)
+            st.markdown(f"<div class='peer-row'>", unsafe_allow_html=True)
+            val = st.radio(f"ציון ל{op_name}:", options=range(1, 11), index=int(current_val)-1, horizontal=True, key=f"pr_{op_name}")
+            peer_ratings_input[op_name] = val
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if st.form_submit_button("שמור שינויים ✅", use_container_width=True):
             if f_name:
-                peer_ratings = json.loads(p_data['peer_ratings']) if p_data and p_data.get('peer_ratings') else {}
-                if peer_target != "---":
-                    peer_ratings[peer_target] = peer_rate
-                
                 updated_p = {
                     "name": f_name, 
                     "birth_year": f_year, 
                     "rating": f_rate, 
                     "roles": f_roles,
-                    "peer_ratings": json.dumps(peer_ratings)
+                    "peer_ratings": json.dumps(peer_ratings_input)
                 }
                 
                 if p_data:
