@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב UI סופי (כהה, יישור ימין, כפתורים קטנים) ---
+# --- 1. עיצוב UI סופי ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -13,7 +13,6 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
 
-    /* כרטיס שחקן מיושר לימין */
     .player-card {
         background-color: #2d3748;
         border: 1px solid #4a5568;
@@ -23,7 +22,6 @@ st.markdown("""
         text-align: right;
     }
     
-    /* כפתור העברה קטנטן */
     .stButton > button[key^="move_"] {
         width: 40px !important;
         height: 25px !important;
@@ -33,12 +31,21 @@ st.markdown("""
         margin-top: 2px;
     }
 
-    /* התאמת Pills (כפתורי בחירה) למראה כהה */
-    div[data-testid="stWidgetLabel"] p { font-weight: bold !important; font-size: 1.1rem !important; }
-    
     .stButton button { width: 100%; border-radius: 8px; background-color: #4a5568 !important; color: white; height: 3rem; border: none; }
     
     div[data-testid="stSegmentedControl"] { background-color: #2d3748; border-radius: 10px; padding: 5px; margin-top: 20px !important; }
+    
+    /* עיצוב המונה */
+    .count-badge {
+        background-color: #4a5568;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        color: #22c55e !important;
+        border: 1px solid #22c55e;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -141,8 +148,11 @@ elif menu == "⚙️ מנהל":
                 f_s, _, b_y = get_stats(p['name'])
                 pool.append({**p, "f": f_s, "age": curr_year-b_y})
             
-            # שימוש ב-Pills במקום Dropdown לבחירה מהירה
             selected_names = st.pills("שחקנים זמינים:", [p['name'] for p in pool], selection_mode="multi")
+            
+            # הצגת מונה שחקנים
+            num_selected = len(selected_names) if selected_names else 0
+            st.markdown(f"<div class='count-badge'>נבחרו {num_selected} שחקנים</div>", unsafe_allow_html=True)
             
             if st.button("חלק קבוצות 🚀"):
                 active = [p for p in pool if p['name'] in selected_names]
@@ -169,7 +179,7 @@ elif menu == "⚙️ מנהל":
                 with st.container(border=True):
                     st.write(f"📊 **סיכום מאזנים:**")
                     st.write(f"💪 **עוצמה:** לבן **{p1:.1f}** | שחור **{p2:.1f}**")
-                    st.write(f"🎂 **ממוצע גיל:** לבן **{age1:.1f}** | שחור **{age2:.1f}**")
+                    st.write(f"🎂 **גיל:** לבן **{age1:.1f}** | שחור **{age2:.1f}**")
 
                 msg = f"⚽ הקבוצות להיום:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
                 msg += f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
