@@ -12,10 +12,11 @@ st.markdown("""
     <style>
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
-    .admin-player-row { background-color: #2d3748; border: 1px solid #4a5568; padding: 10px; border-radius: 8px; text-align: right; margin-bottom: 5px; }
+    .admin-player-row { background-color: #2d3748; border: 1px solid #4a5568; padding: 10px; border-radius: 8px; text-align: right; margin-bottom: 5px; width: 100%; }
     .stButton > button { border-radius: 6px !important; background-color: #4a5568 !important; color: white !important; border: none !important; }
     .stButton > button[key^="edit_"], .stButton > button[key^="del_"], .stButton > button[key^="move_"] { width: 40px !important; height: 35px !important; padding: 0px !important; font-size: 16px !important; }
     
+    /* תפריט רדיו מעוצב כטאבים */
     div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 10px; }
     div[data-testid="stRadio"] label { background-color: #2d3748; padding: 10px 20px; border-radius: 10px; border: 1px solid #4a5568; cursor: pointer; }
     div[data-testid="stRadio"] label[data-checked="true"] { background-color: #4a5568; border-color: #22c55e; }
@@ -30,7 +31,7 @@ if 'players' not in st.session_state:
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
     except: st.session_state.players = []
 
-# משתני שליטה
+# משתני שליטה (חיוני לעריכה)
 if 'menu_index' not in st.session_state: st.session_state.menu_index = 0
 if 'edit_player' not in st.session_state: st.session_state.edit_player = "---"
 if 'widget_key' not in st.session_state: st.session_state.widget_key = 0
@@ -58,7 +59,7 @@ def get_stats(name):
 menu_options = ["👤 שחקן", "⚙️ מנהל"]
 choice = st.radio("ניווט", menu_options, index=st.session_state.menu_index, label_visibility="collapsed")
 
-# עדכון אינדקס
+# עדכון אינדקס הטאב לפי בחירה ידנית
 if choice == "👤 שחקן": st.session_state.menu_index = 0
 else: st.session_state.menu_index = 1
 
@@ -68,10 +69,11 @@ if st.session_state.menu_index == 0:
     names = sorted([str(p['name']) for p in st.session_state.players])
     options = ["---", "🆕 חדש"] + names
     
+    # מציאת האינדקס של השחקן שנבחר לעריכה
     try: default_idx = options.index(st.session_state.edit_player)
     except: default_idx = 0
 
-    # שימוש ב-Key דינמי כדי להכריח רענון בעת עריכה
+    # Key דינמי להכרחת רענון הווידג'ט
     sel = st.selectbox("מי אתה?", options, index=default_idx, key=f"sel_{st.session_state.widget_key}")
     
     if sel != "---":
@@ -84,7 +86,7 @@ if st.session_state.menu_index == 0:
                 roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
                 def_r = curr['pos'].split(", ") if curr and isinstance(curr['pos'], str) else []
                 pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_r)
-                rate = st.radio("דירוג עצמי:", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True)
+                rate = st.radio("דירוג עצמי (1-10):", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True)
             
             st.subheader("⭐ דרג חברים")
             p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
@@ -100,7 +102,7 @@ if st.session_state.menu_index == 0:
                 else: st.session_state.players.append(new_data)
                 save_data()
                 st.session_state.edit_player = "---"
-                st.success("נשמר!")
+                st.success("נשמר בהצלחה!")
                 st.rerun()
 
 # --- 5. דף מנהל ---
@@ -113,17 +115,26 @@ else:
             st.subheader("🗃️ מאגר שחקנים")
             for i, p in enumerate(st.session_state.players):
                 f_s, avg_p, b_y = get_stats(p['name'])
-                age = (2026 - b_y) if (b_y and isinstance(b_y, (int, float))) else "??"
+                
+                # הגנה מלאה משגיאות טקסט וחישוב
+                safe_age = (2026 - b_y) if isinstance(b_y, (int, float)) else "??"
+                safe_pos = str(p.get('pos', '-'))
+                pos_display = (safe_pos[:15] + '..') if len(safe_pos) > 15 else safe_pos
                 
                 with st.container():
                     c1, c2, c3 = st.columns([3, 0.6, 0.6])
                     with c1:
-                        st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {age} | {p.get('pos','-')[:15]}<br><small>⭐ {f_s:.1f}</small></div>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class='admin-player-row'>
+                            <b>{p['name']}</b> | {safe_age} | {pos_display}<br>
+                            <small style='color:#94a3b8;'>⭐ סופי: {f_s:.1f}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
                     with c2:
                         if st.button("✏️", key=f"edit_{i}"):
                             st.session_state.edit_player = p['name']
                             st.session_state.menu_index = 0
-                            st.session_state.widget_key += 1 # משנה את המפתח של ה-selectbox
+                            st.session_state.widget_key += 1
                             st.rerun()
                     with c3:
                         if st.button("🗑️", key=f"del_{i}"):
@@ -132,13 +143,14 @@ else:
                             st.rerun()
         
         elif act == "חלוקה":
-            # לוגיקת חלוקה זהה...
             pool = []
             for p in st.session_state.players:
                 f_s, _, b_y = get_stats(p['name'])
                 pool.append({**p, "f": f_s, "age": 2026-b_y if b_y else 30})
             
             selected = st.pills("מי הגיע?", [p['name'] for p in pool], selection_mode="multi")
+            st.markdown(f"<div style='color:#22c55e; margin:10px 0;'>נבחרו {len(selected)} שחקנים</div>", unsafe_allow_html=True)
+            
             if st.button("חלק קבוצות 🚀"):
                 active = [p for p in pool if p['name'] in selected]
                 active.sort(key=lambda x: x['f'], reverse=True)
@@ -151,3 +163,7 @@ else:
                         st.subheader(label)
                         for i, p in enumerate(team):
                             st.markdown(f"<div style='background:#2d3748; padding:5px; border-radius:5px; margin-bottom:5px;'><b>{p['name']}</b><br><small>⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
+                            if st.button("🔄", key=f"m_{label}_{i}"):
+                                if label == "⚪ לבן": st.session_state.t2.append(st.session_state.t1.pop(i))
+                                else: st.session_state.t1.append(st.session_state.t2.pop(i))
+                                st.rerun()
