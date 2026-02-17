@@ -15,28 +15,30 @@ st.markdown("""
     .database-card { background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px; text-align: right; }
     .card-title { font-size: 18px; font-weight: bold; color: #60a5fa; }
     div[role="radiogroup"] { flex-direction: row !important; gap: 10px !important; justify-content: flex-start; }
+    
+    /* עיצוב כפתור ה-Pills שיהיה בולט */
+    div[data-testid="stPills"] button {
+        background-color: #4a5568 !important;
+        color: white !important;
+        border-radius: 20px !important;
+    }
+    div[data-testid="stPills"] button[aria-checked="true"] {
+        background-color: #60a5fa !important;
+        border: 1px solid white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. פונקציות עזר קריטיות (הגנה משגיאות) ---
+# --- 2. פונקציות עזר קריטיות ---
 def safe_split(val):
-    """פיצול בטוח של מחרוזת לרשימה"""
-    if not val or pd.isna(val):
-        return []
-    if isinstance(val, list):
-        return val
+    if not val or pd.isna(val): return []
     return str(val).split(',')
 
 def safe_get_json(val):
-    """טעינת JSON בטוחה"""
-    if not val or pd.isna(val):
-        return {}
-    if isinstance(val, dict):
-        return val
-    try:
-        return json.loads(str(val))
-    except:
-        return {}
+    if not val or pd.isna(val): return {}
+    if isinstance(val, dict): return val
+    try: return json.loads(str(val))
+    except: return {}
 
 # --- 3. חיבור לנתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -70,10 +72,17 @@ st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_
 
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# --- 5. טאב חלוקה ---
+# --- 5. טאב חלוקה (שינוי לכפתורי בחירה - Pills) ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
-    selected = st.multiselect(f"מי הגיע?", all_names)
+    
+    # שימוש ב-st.pills לבחירת שחקנים (במקום multiselect)
+    selected = st.pills(
+        f"מי הגיע? ({len(st.session_state.get('p_selection_pills', []))})", 
+        all_names, 
+        selection_mode="multi", 
+        key="p_selection_pills"
+    )
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected:
@@ -105,7 +114,6 @@ with tab2:
             <div class='database-card'>
                 <div class='card-title'>{p['name']}</div>
                 <div class='card-detail'>גיל: {2026 - birth} | ציון: {score:.1f}</div>
-                <div class='card-detail'>תפקידים: {p.get('roles', 'לא הוגדר')}</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -120,11 +128,10 @@ with tab2:
                 save_to_gsheets()
                 st.rerun()
 
-# --- 7. טאב עדכון/הרשמה (התיקון לשגיאה שלך כאן) ---
+# --- 7. טאב עדכון/הרשמה ---
 with tab3:
     st.subheader("עדכון פרטים")
     names_list = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
-    
     target = st.session_state.get('edit_name', "🆕 שחקן חדש")
     if target not in names_list: target = "🆕 שחקן חדש"
     
@@ -132,13 +139,10 @@ with tab3:
     
     with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
-        
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
-        
-        # שימוש בפונקציית ההגנה safe_split כדי למנוע את קריסת ה-split(',')
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
         f_roles = st.multiselect("תפקידים:", roles_list, default=[r for r in existing_roles if r in roles_list])
         
@@ -158,17 +162,13 @@ with tab3:
         if st.form_submit_button("שמור שינויים ✅", use_container_width=True):
             if f_name:
                 updated_entry = {
-                    "name": f_name, 
-                    "birth_year": f_year, 
-                    "rating": f_rate, 
-                    "roles": ",".join(f_roles), 
-                    "peer_ratings": json.dumps(peer_results)
+                    "name": f_name, "birth_year": f_year, "rating": f_rate, 
+                    "roles": ",".join(f_roles), "peer_ratings": json.dumps(peer_results)
                 }
                 if p_data:
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)
                     st.session_state.players[idx] = updated_entry
-                else:
-                    st.session_state.players.append(updated_entry)
+                else: st.session_state.players.append(updated_entry)
                 save_to_gsheets()
                 st.session_state.edit_name = f_name
                 st.success("נשמר!")
