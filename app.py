@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS (יישור לימין ושורת כפתורים) ---
+# --- 1. עיצוב CSS ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -13,43 +13,35 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
-
     .main-title { font-size: 18px !important; text-align: center !important; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
     
-    /* כרטיס מאגר */
     .database-card {
         background: #2d3748;
         border: 1px solid #4a5568;
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
         text-align: right;
     }
     .card-title { font-size: 16px; font-weight: bold; color: #60a5fa; margin-bottom: 2px; }
     .card-detail { font-size: 13px; color: #cbd5e0; margin-bottom: 2px; }
 
-    /* עיצוב כפתורי המאגר בשורה אחת */
     div[data-testid="column"] button {
         width: 100% !important;
         padding: 4px !important;
         height: 35px !important;
     }
 
-    /* נעילת 2 עמודות בסלולר (חלוקה) */
     .team-section [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
     }
-    .team-section [data-testid="column"] {
-        flex: 1 1 50% !important;
-        min-width: 45% !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. לוגיקה ונתונים ---
+# --- 2. פונקציות עזר ונתונים ---
 def parse_peer_ratings(val):
     if not val or pd.isna(val): return {}
     if isinstance(val, dict): return val
@@ -79,14 +71,25 @@ def get_player_stats(name):
     avg_p = sum(peers)/len(peers) if peers else 0
     return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
 
-# --- 3. תפריט ---
-st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
-if 'menu_idx' not in st.session_state: st.session_state.menu_idx = "חלוקה"
+# --- 3. ניהול ניווט (התיקון לכפתור עריכה) ---
+if 'menu_selection' not in st.session_state:
+    st.session_state.menu_selection = "חלוקה"
 
-menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "עדכון/הרשמה"], default=st.session_state.menu_idx)
+def set_menu(choice):
+    st.session_state.menu_selection = choice
+
+st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
+
+# שימוש ב-key כדי לשלוט על הבחירה מבחוץ
+menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "עדכון/הרשמה"], 
+                key="main_menu_pills", 
+                default=st.session_state.menu_selection)
+
+# סנכרון הבחירה חזרה ל-state
+st.session_state.menu_selection = menu
 
 # --- 4. דף חלוקה ---
-if menu == "חלוקה":
+if st.session_state.menu_selection == "חלוקה":
     all_names = sorted([p['name'] for p in st.session_state.players])
     sel_count = len(st.session_state.get('p_sel', []))
     selected = st.pills(f"מי הגיע? ({sel_count})", all_names, selection_mode="multi", key="p_sel")
@@ -119,15 +122,14 @@ if menu == "חלוקה":
                         st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 5. דף מאגר (עם שורת כפתורים 80/20) ---
-elif menu == "מאגר שחקנים":
+# --- 5. דף מאגר (עריכה מתוקנת) ---
+elif st.session_state.menu_selection == "מאגר שחקנים":
     st.subheader("🗄️ ניהול שחקנים")
     curr_year = 2026
     for i, p in enumerate(st.session_state.players):
         score, birth = get_player_stats(p['name'])
         age = curr_year - birth
         
-        # הצגת תוכן הכרטיס (מיושר לימין)
         st.markdown(f"""
             <div class='database-card'>
                 <div class='card-title'>{p['name']}</div>
@@ -136,29 +138,29 @@ elif menu == "מאגר שחקנים":
             </div>
         """, unsafe_allow_html=True)
         
-        # שורת כפתורים מתחת לכרטיס (80/20)
         col_edit, col_del = st.columns([4, 1])
         with col_edit:
-            if st.button(f"📝 עריכת {p['name']}", key=f"edit_{i}"):
-                st.session_state.edit_player = p['name']
-                st.session_state.menu_idx = "עדכון/הרשמה"
+            if st.button(f"📝 עריכת {p['name']}", key=f"edit_btn_{i}"):
+                st.session_state.edit_player_name = p['name'] # שומר את השם לעריכה
+                st.session_state.menu_selection = "עדכון/הרשמה" # משנה טאב ב-state
                 st.rerun()
         with col_del:
-            if st.button("🗑️", key=f"del_{i}"):
+            if st.button("🗑️", key=f"del_btn_{i}"):
                 st.session_state.players.pop(i)
                 save_data()
                 st.rerun()
-        st.markdown("---") # קו מפריד בין שחקנים
+        st.markdown("---")
 
 # --- 6. דף עדכון/הרשמה ---
-elif menu == "עדכון/הרשמה":
+elif st.session_state.menu_selection == "עדכון/הרשמה":
     st.subheader("📝 עדכון פרטים")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     
-    default_choice = st.session_state.get('edit_player', "🆕 שחקן חדש")
-    if default_choice not in names: default_choice = "🆕 שחקן חדש"
+    # טעינת השחקן שנבחר מהמאגר
+    target = st.session_state.get('edit_player_name', "🆕 שחקן חדש")
+    if target not in names: target = "🆕 שחקן חדש"
     
-    choice = st.selectbox("בחר שחקן:", names, index=names.index(default_choice))
+    choice = st.selectbox("בחר שחקן לעריכה:", names, index=names.index(target))
     
     with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
@@ -198,6 +200,6 @@ elif menu == "עדכון/הרשמה":
                     st.session_state.players[idx] = updated_p
                 else: st.session_state.players.append(updated_p)
                 save_data()
-                st.session_state.edit_player = f_name
+                st.session_state.edit_player_name = f_name
                 st.success("נשמר!")
                 st.rerun()
