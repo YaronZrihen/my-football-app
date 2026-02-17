@@ -5,29 +5,62 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב UI ---
+# --- 1. הגדרות ועיצוב UI ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
-    .admin-player-row { background-color: #2d3748; border: 1px solid #4a5568; padding: 10px; border-radius: 8px; text-align: right; margin-bottom: 5px; width: 100%; }
-    .stButton > button { border-radius: 6px !important; background-color: #4a5568 !important; color: white !important; border: none !important; }
-    .stButton > button[key^="edit_"], .stButton > button[key^="del_"], .stButton > button[key^="move_"] { width: 40px !important; height: 35px !important; padding: 0px !important; font-size: 16px !important; }
     
+    /* הכרחת שתי עמודות צמודות בסלולר */
+    [data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 50% !important;
+    }
+
+    /* כרטיס שחקן במאגר (מנהל) */
+    .admin-player-row {
+        background-color: #2d3748;
+        border: 1px solid #4a5568;
+        padding: 8px;
+        border-radius: 8px;
+        text-align: right;
+        margin-bottom: 5px;
+        width: 100%;
+    }
+
+    /* כרטיס שחקן בחלוקה (קומפקטי לסלולר) */
+    .player-card-mobile {
+        background-color: #2d3748;
+        border: 1px solid #4a5568;
+        padding: 6px;
+        border-radius: 6px;
+        margin-bottom: 4px;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    /* כפתורי פעולה קטנים */
+    .stButton > button { border-radius: 6px !important; background-color: #4a5568 !important; color: white !important; border: none !important; }
+    .stButton > button[key^="edit_"], .stButton > button[key^="del_"], .stButton > button[key^="m_"] {
+        width: 100% !important; height: 32px !important; padding: 0px !important; font-size: 14px !important;
+    }
+
     /* טבלת מאזנים */
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #2d3748; border-radius: 10px; overflow: hidden; }
-    .stats-table th, .stats-table td { padding: 12px; text-align: center; border: 1px solid #4a5568; }
+    .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #2d3748; border-radius: 8px; overflow: hidden; font-size: 14px; }
+    .stats-table th, .stats-table td { padding: 10px; text-align: center; border: 1px solid #4a5568; }
     .stats-table th { background-color: #3d495d; color: #22c55e; }
 
-    div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 10px; }
-    div[data-testid="stRadio"] label { background-color: #2d3748; padding: 10px 20px; border-radius: 10px; border: 1px solid #4a5568; cursor: pointer; }
+    /* תפריט רדיו מעוצב כטאבים */
+    div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 8px; }
+    div[data-testid="stRadio"] label { background-color: #2d3748; padding: 8px 16px; border-radius: 10px; border: 1px solid #4a5568; cursor: pointer; }
     div[data-testid="stRadio"] label[data-checked="true"] { background-color: #4a5568; border-color: #22c55e; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. אתחול נתונים ---
+# --- 2. לוגיקה ונתונים ---
 if 'players' not in st.session_state:
     conn = st.connection("gsheets", type=GSheetsConnection)
     try:
@@ -35,6 +68,7 @@ if 'players' not in st.session_state:
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
     except: st.session_state.players = []
 
+# ניהול ניווט ועריכה
 if 'menu_index' not in st.session_state: st.session_state.menu_index = 0
 if 'edit_player' not in st.session_state: st.session_state.edit_player = "---"
 if 'widget_key' not in st.session_state: st.session_state.widget_key = 0
@@ -58,7 +92,7 @@ def get_stats(name):
     avg_p = sum(peer_scores)/len(peer_scores) if peer_scores else 0.0
     return (s_rate + avg_p) / 2 if avg_p > 0 else s_rate, avg_p, int(p.get('birth_year', 1995))
 
-# --- 3. תפריט ---
+# --- 3. תפריט ניווט ---
 choice = st.radio("ניווט", ["👤 שחקן", "⚙️ מנהל"], index=st.session_state.menu_index, label_visibility="collapsed")
 st.session_state.menu_index = 0 if choice == "👤 שחקן" else 1
 
@@ -83,19 +117,21 @@ if st.session_state.menu_index == 0:
                 pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_r)
                 rate = st.radio("דירוג (1-10):", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True)
             
+            st.subheader("⭐ דרג חברים")
             p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
             for p in st.session_state.players:
                 if p['name'] != f_name:
                     st.write(f"**{p['name']}**")
                     p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, key=f"rt_{p['name']}_{sel}")
 
-            if st.button("שמור ✅"):
+            if st.button("שמור ועדכן ✅"):
                 new_d = {"name": f_name, "birth_year": y, "pos": ", ".join(pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
                 idx = next((i for i, x in enumerate(st.session_state.players) if x['name'] == f_name), None)
                 if idx is not None: st.session_state.players[idx] = new_d
                 else: st.session_state.players.append(new_d)
                 save_data()
                 st.session_state.edit_player = "---"
+                st.success("נשמר!")
                 st.rerun()
 
 # --- 5. דף מנהל ---
@@ -134,14 +170,15 @@ else:
                 st.session_state.t1, st.session_state.t2 = active[0::2], active[1::2]
             
             if selected and 't1' in st.session_state:
-                cols = st.columns(2)
-                for col, team, label in zip(cols, [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"]):
+                # --- תצוגת קבוצות בשתי עמודות צמודות ---
+                col1, col2 = st.columns(2)
+                for col, team, label, key_pfx in zip([col1, col2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"], ["w", "b"]):
                     with col:
-                        st.subheader(label)
+                        st.markdown(f"<h4 style='text-align:center;'>{label}</h4>", unsafe_allow_html=True)
                         for i, p in enumerate(team):
-                            st.markdown(f"<div style='background:#2d3748; padding:5px; border-radius:5px; margin-bottom:5px;'><b>{p['name']}</b><br><small>⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
-                            if st.button("🔄", key=f"m_{label}_{i}"):
-                                if label == "⚪ לבן": st.session_state.t2.append(st.session_state.t1.pop(i))
+                            st.markdown(f"<div class='player-card-mobile'><b>{p['name']}</b><br>⭐{p['f']:.1f}</div>", unsafe_allow_html=True)
+                            if st.button("🔄", key=f"m_{key_pfx}_{i}"):
+                                if key_pfx == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
                                 st.rerun()
                 
@@ -153,8 +190,8 @@ else:
                 st.markdown(f"""
                 <table class="stats-table">
                     <tr><th>מדד</th><th>⚪ לבן</th><th>⚫ שחור</th></tr>
-                    <tr><td>💪 עוצמה כללית</td><td>{p1:.1f}</td><td>{p2:.1f}</td></tr>
-                    <tr><td>🎂 גיל ממוצע</td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr>
+                    <tr><td>💪 כוח</td><td>{p1:.1f}</td><td>{p2:.1f}</td></tr>
+                    <tr><td>🎂 גיל</td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr>
                     <tr><td>🏃 כמות</td><td>{len(st.session_state.t1)}</td><td>{len(st.session_state.t2)}</td></tr>
                 </table>
                 """, unsafe_allow_html=True)
