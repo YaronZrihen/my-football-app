@@ -127,15 +127,31 @@ else:
         if act == "מאגר":
             st.subheader("🗃️ מאגר שחקנים")
             for i, p in enumerate(st.session_state.players):
+                # חישוב נתונים עם הגנות
                 f_s, avg_p, b_y = get_stats(p['name'])
+                
+                # הגנה מפני ערך None בשנה
+                age_display = (2026 - b_y) if (b_y and isinstance(b_y, (int, float))) else "??"
+                
+                # הגנה על תפקיד (pos)
+                pos = p.get('pos', '-')
+                if not isinstance(pos, str): pos = "-"
+                pos_display = (pos[:15] + '..') if len(pos) > 15 else pos
+                
                 with st.container():
                     c1, c2, c3 = st.columns([3, 0.6, 0.6])
                     with c1:
-                        st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {2026-b_y} | {p.get('pos','-')[:15]}<br><small>⭐ {f_s:.1f} (חברים: {avg_p:.1f})</small></div>", unsafe_allow_html=True)
+                        # השורה הקומפקטית
+                        st.markdown(f"""
+                            <div class='admin-player-row'>
+                                <b>{p['name']}</b> | גיל: {age_display} | {pos_display}<br>
+                                <small style='color:#94a3b8;'>⭐ {f_s:.1f} (חברים: {avg_p:.1f})</small>
+                            </div>
+                        """, unsafe_allow_html=True)
                     with c2:
                         if st.button("✏️", key=f"edit_{i}"):
                             st.session_state.edit_player = p['name']
-                            st.session_state.menu_index = 0 # מעבר לטאב שחקן
+                            st.session_state.menu_index = 0
                             st.rerun()
                     with c3:
                         if st.button("🗑️", key=f"del_{i}"):
@@ -174,3 +190,4 @@ else:
                 a1 = sum([x['age'] for x in st.session_state.t1])/len(st.session_state.t1) if st.session_state.t1 else 0
                 a2 = sum([x['age'] for x in st.session_state.t2])/len(st.session_state.t2) if st.session_state.t2 else 0
                 st.info(f"עוצמה: {p1:.1f} VS {p2:.1f} | גיל ממוצע: {a1:.1f} VS {a2:.1f}")
+
