@@ -125,46 +125,50 @@ if menu == "שחקן":
                 st.rerun()
 
 # --- 6. ניהול מאגר (Admin) ---
-# --- 6. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר":
-    st.title("👤 ציונים וניהול מאגר")
-    
-    # חישוב גיל נוכחי
-    current_year = 2026
+    st.title("👤 ניהול מאגר וציונים")
     
     for i, p in enumerate(st.session_state.players):
         f, avg, count = get_final_score(p['name'])
-        age = current_year - int(p.get('birth_year', 1995))
+        age = 2026 - int(p.get('birth_year', 1995))
         
         with st.container(border=True):
-            # חלוקה לעמודות: מידע, ציונים, וכפתורי פעולה
+            # תצוגת השחקן בשתי שורות כמו שביקשת
             c = st.columns([3, 1, 1, 1, 1])
-            
-            # שורה 1: שם | שורה 2: גיל ותפקידים
             with c[0]:
-                st.markdown(f"### {p['name']}")
-                st.markdown(f"<small>🎂 גיל: {age} | 🏃 תפקיד: {p.get('pos', 'לא הוגדר')}</small>", unsafe_allow_html=True)
+                st.subheader(p['name'])
+                st.write(f"🎂 גיל: {age} | 🏃 תפקיד: {p.get('pos', '---')}")
             
-            # הצגת ציונים במטריקות
             c[1].metric("אישי", f"{float(p.get('rating', 5)):.1f}")
             c[2].metric("חברים", f"{avg:.1f}", f"({count})")
             c[3].metric("סופי", f"{f:.1f}")
             
-            # עמודת כפתורי פעולה (עריכה ומחיקה)
-            with c[4]:
-                # כפתור עריכה - מעביר לדף שחקן עם השם הנבחר
-                if st.button("📝 עריכה", key=f"edit_{i}"):
-                    # שינוי מצב הגישה והשם ב-session_state כדי "לדמות" בחירה בשחקן
-                    st.session_state.access_mode = "שחקן" 
-                    st.session_state.selected_player_to_edit = p['name']
-                    st.info(f"עובר לעריכת {p['name']}... בחר 'שחקן' בתפריט הצד")
-                    st.rerun()
-                
-                # כפתור מחיקה
-                if st.button("🗑️ מחיקה", key=f"del_{i}"):
-                    st.session_state.players.pop(i)
-                    save_data(st.session_state.players)
-                    st.rerun()
+            # כפתורי פעולה
+            edit_mode = st.checkbox("📝 עריכה", key=f"check_edit_{i}")
+            if c[4].button("🗑️ מחיקה", key=f"del_{i}"):
+                st.session_state.players.pop(i)
+                save_data(st.session_state.players)
+                st.rerun()
+
+            # אם סימנו "עריכה", יפתח טופס קטן מתחת לשחקן
+            if edit_mode:
+                with st.expander("ערוך פרטים עבור " + p['name'], expanded=True):
+                    new_name = st.text_input("שם:", value=p['name'], key=f"en_{i}")
+                    new_year = st.number_input("שנת לידה:", 1950, 2026, int(p['birth_year']), key=f"ey_{i}")
+                    new_pos = st.text_input("תפקיד:", value=p['pos'], key=f"ep_{i}")
+                    new_rate = st.slider("דירוג אישי:", 1.0, 10.0, float(p['rating']), key=f"er_{i}")
+                    
+                    if st.button("שמור שינויים 💾", key=f"save_edit_{i}"):
+                        st.session_state.players[i] = {
+                            "name": new_name,
+                            "birth_year": new_year,
+                            "pos": new_pos,
+                            "rating": new_rate,
+                            "peer_ratings": p.get('peer_ratings', '{}') # שומר על הדירוגים הקיימים
+                        }
+                        save_data(st.session_state.players)
+                        st.success("השינויים נשמרו!")
+                        st.rerun()
 
 # --- 7. חלוקת קבוצות ---
 elif menu == "חלוקת קבוצות":
@@ -195,4 +199,5 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
