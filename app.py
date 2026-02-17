@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS מעודכן (מאגר משופר) ---
+# --- 1. עיצוב CSS (יישור לימין ושורת כפתורים) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -16,29 +16,25 @@ st.markdown("""
 
     .main-title { font-size: 18px !important; text-align: center !important; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
     
-    /* כרטיס מאגר משופר */
+    /* כרטיס מאגר */
     .database-card {
         background: #2d3748;
         border: 1px solid #4a5568;
         border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 5px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
+        padding: 12px;
+        margin-bottom: 10px;
+        text-align: right;
     }
-    .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-    }
-    .card-title { font-size: 16px; font-weight: bold; color: #60a5fa; }
-    .card-detail { font-size: 13px; color: #cbd5e0; }
+    .card-title { font-size: 16px; font-weight: bold; color: #60a5fa; margin-bottom: 2px; }
+    .card-detail { font-size: 13px; color: #cbd5e0; margin-bottom: 2px; }
 
-    /* כפתורים בתוך המאגר */
-    .db-btns { display: flex; gap: 10px; margin-top: 8px; }
-    
+    /* עיצוב כפתורי המאגר בשורה אחת */
+    div[data-testid="column"] button {
+        width: 100% !important;
+        padding: 4px !important;
+        height: 35px !important;
+    }
+
     /* נעילת 2 עמודות בסלולר (חלוקה) */
     .team-section [data-testid="stHorizontalBlock"] {
         display: flex !important;
@@ -123,7 +119,7 @@ if menu == "חלוקה":
                         st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 5. דף מאגר (עם עריכה ומחיקה לשמאל) ---
+# --- 5. דף מאגר (עם שורת כפתורים 80/20) ---
 elif menu == "מאגר שחקנים":
     st.subheader("🗄️ ניהול שחקנים")
     curr_year = 2026
@@ -131,35 +127,34 @@ elif menu == "מאגר שחקנים":
         score, birth = get_player_stats(p['name'])
         age = curr_year - birth
         
-        with st.container():
-            # מבנה כרטיס עם מחיקה בצד שמאל
-            col_content, col_del = st.columns([5, 1])
-            with col_content:
-                st.markdown(f"""
-                    <div class='database-card'>
-                        <div class='card-title'>{p['name']}</div>
-                        <div class='card-detail'>גיל: {age} | ציון: {score:.1f}</div>
-                        <div class='card-detail'>תפקידים: {p.get('roles', 'לא הוגדר')}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button(f"📝 ערוך את {p['name']}", key=f"edit_btn_{i}", use_container_width=True):
-                    st.session_state.edit_player = p['name']
-                    # מעבר אוטומטי לטאב עדכון
-                    st.session_state.menu_idx = "עדכון/הרשמה"
-                    st.rerun()
-            with col_del:
-                st.write("") # ריוח קטן
-                if st.button("🗑️", key=f"del_{i}"):
-                    st.session_state.players.pop(i)
-                    save_data()
-                    st.rerun()
+        # הצגת תוכן הכרטיס (מיושר לימין)
+        st.markdown(f"""
+            <div class='database-card'>
+                <div class='card-title'>{p['name']}</div>
+                <div class='card-detail'>גיל: {age} | ציון משוקלל: {score:.1f}</div>
+                <div class='card-detail'>תפקידים: {p.get('roles', 'לא הוגדר')}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # שורת כפתורים מתחת לכרטיס (80/20)
+        col_edit, col_del = st.columns([4, 1])
+        with col_edit:
+            if st.button(f"📝 עריכת {p['name']}", key=f"edit_{i}"):
+                st.session_state.edit_player = p['name']
+                st.session_state.menu_idx = "עדכון/הרשמה"
+                st.rerun()
+        with col_del:
+            if st.button("🗑️", key=f"del_{i}"):
+                st.session_state.players.pop(i)
+                save_data()
+                st.rerun()
+        st.markdown("---") # קו מפריד בין שחקנים
 
 # --- 6. דף עדכון/הרשמה ---
 elif menu == "עדכון/הרשמה":
     st.subheader("📝 עדכון פרטים")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     
-    # בדיקה אם הגענו מכפתור "עריכה" במאגר
     default_choice = st.session_state.get('edit_player', "🆕 שחקן חדש")
     if default_choice not in names: default_choice = "🆕 שחקן חדש"
     
