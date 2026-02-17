@@ -4,7 +4,7 @@ import pandas as pd
 import urllib.parse
 import json
 
-# --- 1. עיצוב מותאם לסלולר (Mobile-First) ---
+# --- 1. עיצוב מותאם לסלולר (תיקון הסתרה) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -13,30 +13,44 @@ st.markdown("""
     .stApp { direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, .stMarkdown { text-align: right !important; direction: rtl !important; }
 
-    /* עיצוב כפתורי הניווט העליון (Segmented Control) */
-    div[data-testid="stSegmentedControl"] {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-        margin-bottom: 20px;
-    }
-    div[data-testid="stSegmentedControl"] button {
-        flex-grow: 1;
-        height: 50px !important;
-        font-size: 1.1rem !important;
-        font-weight: bold !important;
+    /* הוספת מרווח בראש הדף כדי שהתפריט לא יהיה מוסתר */
+    .stAppHeader { background-color: white !important; }
+    .block-container { 
+        padding-top: 4rem !important; 
+        padding-left: 0.7rem !important; 
+        padding-right: 0.7rem !important; 
     }
 
-    /* הקטנת רווחים לסלולר */
-    .block-container { padding-top: 1rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+    /* עיצוב בולט לכפתורי הניווט העליון */
+    div[data-testid="stSegmentedControl"] {
+        background-color: #f0f2f6;
+        border-radius: 15px;
+        padding: 5px;
+        border: 1px solid #dcdfe6;
+        margin-bottom: 25px !important;
+    }
     
-    /* עיצוב כפתורי הדירוג - מרווחים שווים */
+    div[data-testid="stSegmentedControl"] button {
+        background-color: transparent !important;
+        border: none !important;
+        font-weight: bold !important;
+        color: #31333f !important;
+    }
+
+    /* צבע לכפתור שנבחר בניווט */
+    div[data-testid="stSegmentedControl"] button[aria-checked="true"] {
+        background-color: #ffffff !important;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.1) !important;
+        border-radius: 10px !important;
+    }
+
+    /* כפתורי הדירוג - 1 עד 10 */
     div[data-role="radiogroup"] { 
-        gap: 4px !important; 
+        gap: 2px !important; 
         justify-content: space-between !important;
     }
 
-    /* כפתור שמירה ירוק ובולט */
+    /* כפתור שמירה גדול */
     .stButton button { 
         width: 100%; 
         border-radius: 12px; 
@@ -44,11 +58,12 @@ st.markdown("""
         color: white; 
         font-weight: bold;
         height: 3.5rem;
+        margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. חיבור וטעינה ---
+# --- 2. חיבור נתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
@@ -79,15 +94,17 @@ def get_final_score(player_name):
     final = (self_rate + avg_p) / 2 if avg_p > 0 else self_rate
     return final, avg_p, len(peer_scores)
 
-# --- 3. ניווט עליון בולט ---
+# --- 3. ניווט עליון עם מרווח ביטחון ---
+# הוספתי כותרת קטנה לניווט כדי שיהיה קל לזהות אותו
+st.write("📍 תפריט ראשי:")
 menu = st.segmented_control(
-    "בחר תפריט:",
+    "ניווט",
     options=["👤 שחקן", "⚙️ מנהל"],
     default="👤 שחקן",
     label_visibility="collapsed"
 )
 
-# --- 4. תוכן לפי בחירה ---
+# --- 4. תוכן ---
 if menu == "👤 שחקן":
     st.title("📝 עדכון ודירוג")
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
