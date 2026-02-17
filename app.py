@@ -13,7 +13,7 @@ st.markdown("""
     div[data-testid="stSelectbox"] div[data-baseweb="select"] { direction: rtl !important; text-align: right !important; }
     h1, h2, h3, h4, p, label, span { text-align: right !important; direction: rtl !important; }
     
-    /* עיצוב כפתורי הדירוג (Radio) שיראו כמו כפתורים בשורה */
+    /* עיצוב כפתורי הדירוג (Radio) */
     div[data-testid="stWidgetLabel"] p { font-weight: bold; font-size: 1.1em; color: #1e88e5; }
     div[data-role="radiogroup"] { gap: 10px; justify-content: flex-end; }
     
@@ -79,7 +79,6 @@ if menu == "שחקן":
 
     if final_name:
         st.subheader(f"פרופיל: {final_name}")
-        
         year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
         
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
@@ -92,13 +91,11 @@ if menu == "שחקן":
         
         st.divider()
         st.subheader("⭐ דרג חברים")
-        st.info("דרג את רמת המשחק של החברים (1 = חלש, 10 = חזק מאוד)")
         
         p_ratings = {}
         try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr and pd.notna(curr['peer_ratings']) else {}
         except: p_ratings = {}
 
-        # לולאת דירוג חברים עם Radio Buttons אופקיים
         for p in st.session_state.players:
             if p['name'] != final_name:
                 p_ratings[p['name']] = st.radio(
@@ -123,7 +120,7 @@ if menu == "שחקן":
                 else: st.session_state.players.append(new_p)
                 
                 save_data(st.session_state.players)
-                st.success("הנתונים נשמרו בגיליון!")
+                st.success("הנתונים נשמרו!")
                 st.balloons()
                 st.rerun()
 
@@ -151,4 +148,24 @@ elif menu == "חלוקת קבוצות":
         f, _, _ = get_final_score(p['name'])
         pool.append({**p, "f": f})
         
-    selected =
+    selected_players = st.multiselect("מי משחק היום?", [p['name'] for p in pool])
+    
+    if st.button("חלק קבוצות 🚀"):
+        active = [p for p in pool if p['name'] in selected_players]
+        if len(active) > 1:
+            active.sort(key=lambda x: x['f'], reverse=True)
+            t1, t2 = [], []
+            for i, p in enumerate(active):
+                if i % 2 == 0: t1.append(p)
+                else: t2.append(p)
+            
+            st.divider()
+            c1, c2 = st.columns(2)
+            c1.subheader("⚪ לבן")
+            c1.write("\n".join([f"- {p['name']} ({p['pos']})" for p in t1]))
+            c2.subheader("⚫ שחור")
+            c2.write("\n".join([f"- {p['name']} ({p['pos']})" for p in t2]))
+            
+            msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
+            msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
+            st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
