@@ -1,47 +1,54 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import random
 import urllib.parse
 import json
 
-# --- 1. עיצוב מותאם לסלולר (ללא Sidebar) ---
+# --- 1. עיצוב מותאם לסלולר (Mobile-First) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
+    /* הגדרות RTL */
     .stApp { direction: rtl; text-align: right; }
-    
-    /* יישור לימין לכל האלמנטים */
     h1, h2, h3, h4, p, label, .stMarkdown { text-align: right !important; direction: rtl !important; }
 
-    /* הקטנת רווחים בראש הדף */
-    .block-container { padding-top: 1rem !important; }
+    /* עיצוב כפתורי הניווט העליון (Segmented Control) */
+    div[data-testid="stSegmentedControl"] {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    div[data-testid="stSegmentedControl"] button {
+        flex-grow: 1;
+        height: 50px !important;
+        font-size: 1.1rem !important;
+        font-weight: bold !important;
+    }
+
+    /* הקטנת רווחים לסלולר */
+    .block-container { padding-top: 1rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
     
-    /* עיצוב כפתורי הדירוג (Radio) - צפוף יותר לסלולר */
+    /* עיצוב כפתורי הדירוג - מרווחים שווים */
     div[data-role="radiogroup"] { 
-        gap: 2px !important; 
+        gap: 4px !important; 
         justify-content: space-between !important;
     }
-    div[data-role="radiogroup"] label { font-size: 0.8rem !important; padding: 2px !important; }
 
-    /* עיצוב כפתורי הניווט העליון */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        justify-content: center;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 5px 20px;
+    /* כפתור שמירה ירוק ובולט */
+    .stButton button { 
+        width: 100%; 
+        border-radius: 12px; 
+        background-color: #2e7d32; 
+        color: white; 
         font-weight: bold;
+        height: 3.5rem;
     }
-    
-    .stButton button { width: 100%; border-radius: 8px; background-color: #2e7d32; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. חיבור לגוגל ---
+# --- 2. חיבור וטעינה ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
@@ -72,14 +79,19 @@ def get_final_score(player_name):
     final = (self_rate + avg_p) / 2 if avg_p > 0 else self_rate
     return final, avg_p, len(peer_scores)
 
-# --- 3. ניווט עליון (במקום Sidebar) ---
-tab_player, tab_admin = st.tabs(["👤 שחקן", "⚙️ ניהול ומנהל"])
+# --- 3. ניווט עליון בולט ---
+menu = st.segmented_control(
+    "בחר תפריט:",
+    options=["👤 שחקן", "⚙️ מנהל"],
+    default="👤 שחקן",
+    label_visibility="collapsed"
+)
 
-# --- 4. דף שחקן ---
-with tab_player:
+# --- 4. תוכן לפי בחירה ---
+if menu == "👤 שחקן":
     st.title("📝 עדכון ודירוג")
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
-    sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names, key="main_sel")
+    sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names)
     
     final_name = ""
     curr = None
@@ -98,7 +110,7 @@ with tab_player:
         selected_pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_roles)
         
         st.write("**דירוג אישי:**")
-        rate = st.radio("רמה:", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True, label_visibility="collapsed")
+        rate = st.radio("רמה:", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True, label_visibility="collapsed", key="self")
         
         st.divider()
         st.subheader("⭐ דרג חברים")
@@ -121,13 +133,12 @@ with tab_player:
             st.success("נשמר!")
             st.rerun()
 
-# --- 5. דף מנהל ---
-with tab_admin:
+elif menu == "⚙️ מנהל":
     pwd = st.text_input("סיסמת מנהל:", type="password")
     if pwd == "1234":
-        admin_menu = st.segmented_control("פעולה:", ["ניהול", "חלוקה"], default="ניהול")
+        admin_action = st.segmented_control("פעולה:", ["ניהול", "חלוקה"], default="ניהול")
         
-        if admin_menu == "ניהול":
+        if admin_action == "ניהול":
             for i, p in enumerate(st.session_state.players):
                 f, avg, count = get_final_score(p['name'])
                 with st.container(border=True):
@@ -143,7 +154,7 @@ with tab_admin:
                         save_data(st.session_state.players)
                         st.rerun()
         
-        elif admin_menu == "חלוקה":
+        elif admin_action == "חלוקה":
             pool = []
             for p in st.session_state.players:
                 f, _, _ = get_final_score(p['name'])
