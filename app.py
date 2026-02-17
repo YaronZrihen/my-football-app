@@ -4,49 +4,56 @@ import pandas as pd
 import urllib.parse
 import json
 
-# --- 1. עיצוב UI אגרסיבי לצמצום רוחב ---
+# --- 1. עיצוב UI קשוח למובייל ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; }
+    .block-container { padding: 1rem !important; }
     
-    /* ביטול מרווחים פנימיים של Streamlit */
-    .block-container { padding-top: 2rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
-    
-    /* הכרחת פריסה צמודה לעמודות */
-    [data-testid="stHorizontalBlock"] {
-        gap: 4px !important;
+    /* עיצוב הטבלה */
+    .team-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed; /* הכרחת רוחב שווה */
     }
-
-    /* עיצוב שורת שחקן "מיני" */
-    .player-mini-row {
-        background-color: #2d3748;
+    .team-table td {
+        vertical-align: top;
+        padding: 2px;
+        width: 50%;
+    }
+    
+    /* שורת שחקן צפופה */
+    .p-row {
+        background: #2d3748;
         border: 1px solid #4a5568;
-        padding: 1px 6px;
         border-radius: 4px;
+        padding: 4px 6px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         font-size: 13px;
-        height: 26px; /* גובה קבוע ודק */
-        margin-bottom: 2px;
+        margin-bottom: 3px;
+        height: 30px;
+    }
+    
+    .p-name { 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        flex-grow: 1;
+    }
+    
+    .p-score {
+        color: #22c55e;
+        font-weight: bold;
+        margin-left: 5px;
     }
 
-    /* כפתור החלפה מזערי */
-    .stButton > button[key^="m_"] {
-        border-radius: 3px !important;
-        padding: 0px 4px !important;
-        height: 18px !important;
-        min-height: 18px !important;
-        width: 22px !important;
-        font-size: 10px !important;
-        background-color: #4a5568 !important;
-        margin-top: 4px;
-    }
-
-    /* הסתרת כותרות מיותרות בסלולר */
-    h5 { margin-bottom: 5px !important; font-size: 14px !important; text-align: center; }
+    /* כפתורי רדיו וטאבים קטנים */
+    div[data-testid="stRadio"] > div { gap: 5px; }
+    div[data-testid="stRadio"] label { padding: 5px 10px !important; font-size: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -72,18 +79,17 @@ def get_stats(name):
             if name in r: peer_scores.append(float(r[name]))
         except: continue
     avg_p = sum(peer_scores)/len(peer_scores) if peer_scores else 0.0
-    final = (s_rate + avg_p) / 2 if avg_p > 0 else s_rate
-    return final, int(p.get('birth_year', 1995))
+    return (s_rate + avg_p) / 2 if avg_p > 0 else s_rate, int(p.get('birth_year', 1995))
 
-# --- 3. ניווט ---
+# --- 3. תפריט ---
 choice = st.radio("M", ["👤 שחקן", "⚙️ מנהל"], index=st.session_state.menu_index, label_visibility="collapsed", horizontal=True)
 st.session_state.menu_index = 0 if choice == "👤 שחקן" else 1
 
-# --- 4. דף שחקן (מקוצר) ---
+# --- 4. דף שחקן ---
 if st.session_state.menu_index == 0:
-    st.subheader("רישום שחקן")
-    # ... (הקוד של דף השחקן נשאר זהה לקוד הקודם שלך) ...
-    # לטובת הקיצור אני מתמקד בתיקון ה-UI של החלוקה
+    st.title("📝 רישום")
+    # (הקוד של דף השחקן שלך כאן...)
+    st.info("בחר שחקן מהרשימה או צור חדש")
 
 # --- 5. דף מנהל וחלוקה ---
 else:
@@ -105,35 +111,42 @@ else:
                 st.session_state.t1, st.session_state.t2 = active[0::2], active[1::2]
             
             if 't1' in st.session_state and selected:
-                # שימוש בעמודות שוליים כדי לצמצם את המרכז
-                # יחס של 0.1 לשוליים ו-2 למרכז יגרום לקבוצות להיות צמודות
-                _, col_a, col_b, _ = st.columns([0.1, 2, 2, 0.1])
+                # יצירת טבלת HTML לשתי עמודות
+                t1 = st.session_state.t1
+                t2 = st.session_state.t2
+                max_rows = max(len(t1), len(t2))
                 
-                teams_data = [(col_a, st.session_state.t1, "⚪ לבן", "w"), 
-                              (col_b, st.session_state.t2, "⚫ שחור", "b")]
+                # כותרות הטבלה
+                html = """<table class='team-table'>
+                    <tr>
+                        <th style='text-align:center;'>⚪ לבן</th>
+                        <th style='text-align:center;'>⚫ שחור</th>
+                    </tr>"""
                 
-                for col, team, label, pfx in teams_data:
-                    with col:
-                        st.markdown(f"<h5>{label}</h5>", unsafe_allow_html=True)
-                        for i, p in enumerate(team):
-                            # שורה אחת שכוללת שם, ציון וכפתור
-                            c_text, c_btn = st.columns([0.8, 0.2])
-                            with c_text:
-                                st.markdown(f"""<div class='player-mini-row'>
-                                    <span>{p['name']}</span>
-                                    <span style='color:#22c55e;'>{p['f']:.1f}</span>
-                                </div>""", unsafe_allow_html=True)
-                            with c_btn:
-                                if st.button("🔄", key=f"m_{pfx}_{i}"):
-                                    if pfx == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
-                                    else: st.session_state.t1.append(st.session_state.t2.pop(i))
-                                    st.rerun()
+                st.markdown(html, unsafe_allow_html=True)
+                
+                # שימוש ב-Columns רק עבור הכפתורים כדי לשמור על אינטראקטיביות
+                col_left, col_right = st.columns(2)
+                
+                with col_left:
+                    for i, p in enumerate(t1):
+                        st.markdown(f"""<div class='p-row'><span class='p-name'>{p['name']}</span><span class='p-score'>{p['f']:.1f}</span></div>""", unsafe_allow_html=True)
+                        if st.button("🔄", key=f"mw_{i}"):
+                            st.session_state.t2.append(st.session_state.t1.pop(i))
+                            st.rerun()
+                            
+                with col_right:
+                    for i, p in enumerate(t2):
+                        st.markdown(f"""<div class='p-row'><span class='p-name'>{p['name']}</span><span class='p-score'>{p['f']:.1f}</span></div>""", unsafe_allow_html=True)
+                        if st.button("🔄", key=f"mb_{i}"):
+                            st.session_state.t1.append(st.session_state.t2.pop(i))
+                            st.rerun()
 
-                # מאזן כוחות בשורה אחת
+                # מאזן סופי
                 p1 = sum([x['f'] for x in st.session_state.t1])
                 p2 = sum([x['f'] for x in st.session_state.t2])
-                st.markdown(f"""
-                <div style='text-align:center; background:#2d3748; padding:5px; border-radius:5px; margin-top:10px; font-size:12px;'>
-                ⚪ {p1:.1f} | ⚫ {p2:.1f}
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; background:#3d495d; padding:8px; border-radius:5px; margin-top:15px;'>💪 לבן: {p1:.1f} | שחור: {p2:.1f}</div>", unsafe_allow_html=True)
+                
+                # וואטסאפ
+                msg = f"⚽ קבוצות להיום:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1]) + f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
+                st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(msg)}" style="display:block; text-align:center; background:#22c55e; color:white; padding:10px; border-radius:5px; text-decoration:none; margin-top:10px;">📲 שלח בוואטסאפ</a>', unsafe_allow_html=True)
