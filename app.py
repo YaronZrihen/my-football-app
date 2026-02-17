@@ -133,29 +133,36 @@ elif menu == "⚙️ מנהל":
         admin_act = st.segmented_control("פעולה", ["מאגר", "חלוקה"], default="מאגר")
         
         if admin_act == "מאגר":
-            st.subheader("רשימת שחקנים")
+            st.subheader("🗃️ ניהול שחקנים")
             for i, p in enumerate(st.session_state.players):
+                # חישוב נתונים עם הגנות מפני ערכים ריקים
                 f_s, avg_p, b_y = get_stats(p['name'])
+                age = curr_year - b_y if b_y else "??"
+                pos = p.get('pos', '-')
+                if not isinstance(pos, str): pos = "-"
+                pos_display = (pos[:15] + '..') if len(pos) > 15 else pos
                 
-                # שורה קומפקטית לרוחב
-                col_text, col_btns = st.columns([4, 1.2])
-                with col_text:
-                    st.markdown(f"""
-                        <div class='admin-player-row'>
-                            <div class='player-info'>
-                                <b>{p['name']}</b> | גיל: {curr_year-b_y} | {p.get('pos','-')[:15]}...<br>
-                                <small>⭐ סופי: {f_s:.1f} (אישי: {p['rating']} | חברים: {avg_p:.1f})</small>
+                # יצירת השורה
+                with st.container():
+                    col_text, col_edit, col_del = st.columns([3, 0.6, 0.6])
+                    
+                    with col_text:
+                        # כרטיס שחקן צמוד לימין
+                        st.markdown(f"""
+                            <div class='admin-player-row'>
+                                <div class='player-info' style='text-align: right;'>
+                                    <b>{p['name']}</b> | גיל: {age} | {pos_display}<br>
+                                    <small style='color: #94a3b8;'>⭐ סופי: {f_s:.1f} (אישי: {p.get('rating',0)} | חברים: {avg_p:.1f})</small>
+                                </div>
                             </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                with col_btns:
-                    inner_c1, inner_c2 = st.columns(2)
-                    with inner_c1:
+                        """, unsafe_allow_html=True)
+                    
+                    with col_edit:
                         if st.button("✏️", key=f"edit_{i}"):
                             st.session_state.edit_player = p['name']
                             st.rerun()
-                    with inner_c2:
+                            
+                    with col_del:
                         if st.button("🗑️", key=f"del_{i}"):
                             st.session_state.players.pop(i)
                             save_data(st.session_state.players)
@@ -190,3 +197,4 @@ elif menu == "⚙️ מנהל":
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
                                 st.rerun()
                 # ... סיכום מאזנים ...
+
