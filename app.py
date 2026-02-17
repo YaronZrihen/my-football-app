@@ -4,66 +4,64 @@ import pandas as pd
 import urllib.parse
 import json
 
-# --- 1. עיצוב מותאם לסלולר (תיקון הסתרה) ---
+# --- 1. עיצוב Mobile-First אגרסיבי ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
-    /* הגדרות RTL */
+    /* כיוון כללי RTL */
     .stApp { direction: rtl; text-align: right; }
-    h1, h2, h3, h4, p, label, .stMarkdown { text-align: right !important; direction: rtl !important; }
+    
+    /* הקטנה משמעותית של כותרות */
+    h1 { font-size: 1.2rem !important; font-weight: 800 !important; margin-top: -20px !important; padding-bottom: 10px !important; text-align: right !important; }
+    h2 { font-size: 1.1rem !important; font-weight: 700 !important; text-align: right !important; }
+    h3 { font-size: 1.0rem !important; font-weight: 600 !important; text-align: right !important; }
+    
+    /* הקטנת טקסט כללי וצמצום רווחים */
+    p, label, span, div { font-size: 0.9rem !important; text-align: right !important; }
+    .stMarkdown div p { margin-bottom: 5px !important; }
 
-    /* הוספת מרווח בראש הדף כדי שהתפריט לא יהיה מוסתר */
-    .stAppHeader { background-color: white !important; }
+    /* תיקון מרווחים בראש הדף */
     .block-container { 
-        padding-top: 4rem !important; 
-        padding-left: 0.7rem !important; 
-        padding-right: 0.7rem !important; 
+        padding-top: 2rem !important; 
+        padding-left: 0.5rem !important; 
+        padding-right: 0.5rem !important; 
     }
 
-    /* עיצוב בולט לכפתורי הניווט העליון */
+    /* עיצוב ניווט עליון קומפקטי */
     div[data-testid="stSegmentedControl"] {
         background-color: #f0f2f6;
-        border-radius: 15px;
-        padding: 5px;
-        border: 1px solid #dcdfe6;
-        margin-bottom: 25px !important;
+        border-radius: 8px;
+        padding: 3px;
+        margin-bottom: 15px !important;
     }
-    
     div[data-testid="stSegmentedControl"] button {
-        background-color: transparent !important;
-        border: none !important;
-        font-weight: bold !important;
-        color: #31333f !important;
+        height: 40px !important;
+        font-size: 0.9rem !important;
     }
 
-    /* צבע לכפתור שנבחר בניווט */
-    div[data-testid="stSegmentedControl"] button[aria-checked="true"] {
-        background-color: #ffffff !important;
-        box-shadow: 0px 2px 4px rgba(0,0,0,0.1) !important;
-        border-radius: 10px !important;
-    }
-
-    /* כפתורי הדירוג - 1 עד 10 */
+    /* כפתורי רדיו (1-10) - שיהיו קטנים וצפופים */
     div[data-role="radiogroup"] { 
         gap: 2px !important; 
-        justify-content: space-between !important;
+    }
+    div[data-role="radiogroup"] label {
+        padding: 5px !important;
+        font-size: 0.8rem !important;
     }
 
-    /* כפתור שמירה גדול */
+    /* כפתור שמירה מותאם */
     .stButton button { 
         width: 100%; 
-        border-radius: 12px; 
+        border-radius: 8px; 
         background-color: #2e7d32; 
         color: white; 
+        height: 3rem;
         font-weight: bold;
-        height: 3.5rem;
-        margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. חיבור נתונים ---
+# --- 2. חיבור וטעינה ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
@@ -94,11 +92,9 @@ def get_final_score(player_name):
     final = (self_rate + avg_p) / 2 if avg_p > 0 else self_rate
     return final, avg_p, len(peer_scores)
 
-# --- 3. ניווט עליון עם מרווח ביטחון ---
-# הוספתי כותרת קטנה לניווט כדי שיהיה קל לזהות אותו
-st.write("📍 תפריט ראשי:")
+# --- 3. ניווט ---
 menu = st.segmented_control(
-    "ניווט",
+    "תפריט",
     options=["👤 שחקן", "⚙️ מנהל"],
     default="👤 שחקן",
     label_visibility="collapsed"
@@ -108,7 +104,7 @@ menu = st.segmented_control(
 if menu == "👤 שחקן":
     st.title("📝 עדכון ודירוג")
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
-    sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names)
+    sel = st.selectbox("בחר שם:", ["---", "🆕 חדש"] + names)
     
     final_name = ""
     curr = None
@@ -119,14 +115,14 @@ if menu == "👤 שחקן":
         curr = next((p for p in st.session_state.players if p['name'] == final_name), None)
 
     if final_name:
-        st.subheader(f"שחקן: {final_name}")
+        st.subheader(f"פרופיל: {final_name}")
         year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
         
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
         def_roles = curr['pos'].split(", ") if curr and 'pos' in curr and isinstance(curr['pos'], str) else []
         selected_pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_roles)
         
-        st.write("**דירוג אישי:**")
+        st.write("**דירוג אישי (1-10):**")
         rate = st.radio("רמה:", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True, label_visibility="collapsed", key="self")
         
         st.divider()
@@ -141,7 +137,7 @@ if menu == "👤 שחקן":
                 p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], 
                                                 index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, label_visibility="collapsed")
 
-        if st.button("שמור הכל ✅"):
+        if st.button("שמור ✅"):
             new_p = {"name": final_name, "birth_year": year, "pos": ", ".join(selected_pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
             idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
             if idx is not None: st.session_state.players[idx] = new_p
@@ -151,9 +147,9 @@ if menu == "👤 שחקן":
             st.rerun()
 
 elif menu == "⚙️ מנהל":
-    pwd = st.text_input("סיסמת מנהל:", type="password")
+    pwd = st.text_input("סיסמה:", type="password")
     if pwd == "1234":
-        admin_action = st.segmented_control("פעולה:", ["ניהול", "חלוקה"], default="ניהול")
+        admin_action = st.segmented_control("פעולה", ["ניהול", "חלוקה"], default="ניהול")
         
         if admin_action == "ניהול":
             for i, p in enumerate(st.session_state.players):
