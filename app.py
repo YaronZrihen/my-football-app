@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS סופי (הכל כלול) ---
+# --- 1. עיצוב CSS (צפוף, RTL, נעילת עמודות) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -14,11 +14,10 @@ st.markdown("""
     h1, h2, h3, p, label, span { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
 
-    /* הקטנה דרסטית של כותרות */
     .main-title { font-size: 18px !important; text-align: center !important; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
     .team-header { text-align: center !important; font-size: 12px !important; font-weight: bold; margin-bottom: 4px; }
 
-    /* נעילת שתי עמודות בסלולר */
+    /* נעילת 2 עמודות בסלולר */
     .team-section [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -43,16 +42,16 @@ st.markdown("""
         height: 26px;
     }
     .p-text { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .p-score { color: #22c55e; font-size: 10px; margin-right: 4px; opacity: 0.9; }
+    .p-score { color: #22c55e; font-size: 10px; margin-right: 4px; }
 
-    /* כפתור 🔄 קטן */
-    .stButton > button[key^="m_"] {
-        width: 100% !important;
-        height: 20px !important;
-        padding: 0 !important;
-        font-size: 9px !important;
-        background-color: #3d495d !important;
-        margin-bottom: 8px;
+    /* כפתור רדיו בשורה אחת */
+    div[data-testid="stMarkdownContainer"] > p { font-size: 14px !important; }
+    div[data-testid="stWidgetLabel"] { margin-bottom: -15px !important; }
+    
+    /* עיצוב רדיו אופקי */
+    div[data-testid="stHorizontalBlock"] div[role="radiogroup"] {
+        flex-direction: row !important;
+        gap: 10px !important;
     }
 
     /* טבלת מאזן */
@@ -89,12 +88,11 @@ def get_player_stats(name):
 
 # --- 3. תפריט ---
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
-menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "הרשמה/עריכה"], default="חלוקה")
+menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "עדכון/הרשמה"], default="חלוקה")
 
 # --- 4. דף חלוקה ---
 if menu == "חלוקה":
     all_names = sorted([p['name'] for p in st.session_state.players])
-    # מונה שחקנים בתוך ה-pills
     sel_count = len(st.session_state.get('p_sel', []))
     selected = st.pills(f"מי הגיע? ({sel_count})", all_names, selection_mode="multi", key="p_sel")
 
@@ -126,7 +124,6 @@ if menu == "חלוקה":
                         st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # טבלת מאזן (כוח וגיל)
         s1, s2 = sum(x['f'] for x in st.session_state.t1), sum(x['f'] for x in st.session_state.t2)
         a1 = sum(x['age'] for x in st.session_state.t1)/len(st.session_state.t1) if st.session_state.t1 else 0
         a2 = sum(x['age'] for x in st.session_state.t2)/len(st.session_state.t2) if st.session_state.t2 else 0
@@ -134,34 +131,65 @@ if menu == "חלוקה":
 
 # --- 5. דף מאגר ---
 elif menu == "מאגר שחקנים":
-    st.subheader("ניהול ומחיקה")
+    st.subheader("ניהול מאגר")
     for i, p in enumerate(st.session_state.players):
-        col1, col2 = st.columns([5, 1])
-        with col1: st.write(f"**{p['name']}** (יליד {p['birth_year']})")
-        with col2:
+        c1, c2 = st.columns([5, 1])
+        with c1: st.write(f"**{p['name']}** (יליד {p['birth_year']})")
+        with c2:
             if st.button("🗑️", key=f"del_{i}"):
                 st.session_state.players.pop(i)
                 save_data()
                 st.rerun()
 
-# --- 6. דף הרשמה/עריכה ---
-elif menu == "הרשמה/עריכה":
+# --- 6. דף עדכון/הרשמה ---
+elif menu == "עדכון/הרשמה":
     st.subheader("עדכון פרטים")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
-    choice = st.selectbox("בחר שחקן לעריכה:", names)
+    choice = st.selectbox("בחר שחקן:", names)
     
-    with st.form("reg_form"):
+    with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
+        
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
-        f_rate = st.slider("דירוג (1-10):", 1, 10, int(p_data['rating']) if p_data else 5)
+        
+        # תפקידים - כפתורי בחירה מרובה (Pills בתוך הטופס)
+        st.write("תפקידים:")
+        roles = ["הגנה", "קישור", "התקפה", "שוער"]
+        current_roles = p_data.get('roles', []) if p_data else []
+        f_roles = st.pills("בחר תפקידים:", roles, selection_mode="multi", default=current_roles)
+        
+        # דירוג עצמי - רדיו בשורה אחת
+        f_rate = st.radio("דירוג עצמי (1-10):", options=range(1, 11), 
+                         index=int(p_data['rating'])-1 if p_data else 4, horizontal=True)
+        
+        # דירוג שחקנים אחרים - רדיו בשורה אחת
+        st.write("---")
+        st.write("דירוג שחקנים (בחר שחקן ודרג אותו):")
+        other_names = [n for n in names if n != choice and n != "🆕 שחקן חדש"]
+        peer_target = st.selectbox("דרג את השחקן:", ["---"] + other_names)
+        peer_rate = st.radio("ציון לשחקן:", options=range(1, 11), index=4, horizontal=True)
+
         if st.form_submit_button("שמור שינויים ✅"):
             if f_name:
-                updated_p = {"name": f_name, "birth_year": f_year, "rating": f_rate, "peer_ratings": p_data['peer_ratings'] if p_data else "{}"}
+                peer_ratings = json.loads(p_data['peer_ratings']) if p_data and p_data.get('peer_ratings') else {}
+                if peer_target != "---":
+                    peer_ratings[peer_target] = peer_rate
+                
+                updated_p = {
+                    "name": f_name, 
+                    "birth_year": f_year, 
+                    "rating": f_rate, 
+                    "roles": f_roles,
+                    "peer_ratings": json.dumps(peer_ratings)
+                }
+                
                 if p_data:
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)
                     st.session_state.players[idx] = updated_p
-                else: st.session_state.players.append(updated_p)
+                else:
+                    st.session_state.players.append(updated_p)
+                
                 save_data()
-                st.success("נשמר!")
+                st.success("הנתונים נשמרו בהצלחה!")
                 st.rerun()
