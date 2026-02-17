@@ -126,9 +126,15 @@ if menu == "👤 שחקן":
 
         for p in st.session_state.players:
             if p['name'] != final_name:
-                st.write(f"הרמה של {p['name']}:")
-                p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], 
-                                                index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, label_visibility="collapsed")
+                # מציג את השם בלבד ככותרת קטנה מעל הכפתורים
+                st.markdown(f"**{p['name']}**")
+                p_ratings[p['name']] = st.radio(
+                    f"r_{p['name']}", 
+                    [1,2,3,4,5,6,7,8,9,10], 
+                    index=int(p_ratings.get(p['name'], 5))-1, 
+                    horizontal=True, 
+                    label_visibility="collapsed"
+                )
 
         if st.button("שמור שינויים ✅"):
             new_p = {"name": final_name, "birth_year": year, "pos": ", ".join(selected_pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
@@ -181,3 +187,4 @@ elif menu == "⚙️ מנהל":
                 
                 msg = f"⚽ הקבוצות להיום:\n\n⚪ לבן: {', '.join([p['name'] for p in t1])}\n\n⚫ שחור: {', '.join([p['name'] for p in t2])}"
                 st.markdown(f'[📲 שלח בוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
