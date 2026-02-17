@@ -13,53 +13,51 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
     
-    /* פתרון הקסם לשתי עמודות בסלולר */
-    [data-testid="column"] {
-        width: 50% !important;
-        flex: 1 1 50% !important;
-        min-width: 50% !important;
-    }
-    
-    /* ביטול הריווח ש-Streamlit מוסיף בין עמודות שבורות */
+    /* צמצום מקסימלי של רוחב ורווחים בסלולר */
     [data-testid="stHorizontalBlock"] {
         flex-direction: row !important;
         display: flex !important;
         flex-wrap: nowrap !important;
+        gap: 4px !important; /* רווח מזערי בין העמודות */
+    }
+    
+    [data-testid="column"] {
+        width: 48% !important; /* כמעט חצי, משאיר קצת מרווח ביטחון */
+        flex: 1 1 auto !important;
+        min-width: 0 !important; /* מאפשר צמצום מקסימלי */
     }
 
-    .admin-player-row {
-        background-color: #2d3748;
-        border: 1px solid #4a5568;
-        padding: 8px;
-        border-radius: 8px;
-        text-align: right;
-        margin-bottom: 5px;
-        width: 100%;
-    }
-
+    /* כרטיס שחקן קומפקטי במיוחד */
     .player-card-mobile {
         background-color: #2d3748;
         border: 1px solid #4a5568;
-        padding: 4px;
-        border-radius: 6px;
-        margin-bottom: 4px;
+        padding: 2px 5px; /* מינימום פדינג */
+        border-radius: 4px;
+        margin-bottom: 3px;
         font-size: 13px;
-        text-align: center;
-        line-height: 1.2;
+        text-align: right; /* יישור לימין לחסכון במקום */
+        white-space: nowrap; /* מניעת ירידת שורה של השם */
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .stButton > button { border-radius: 6px !important; background-color: #4a5568 !important; color: white !important; border: none !important; }
-    .stButton > button[key^="edit_"], .stButton > button[key^="del_"], .stButton > button[key^="m_"] {
-        width: 100% !important; height: 30px !important; padding: 0px !important; font-size: 12px !important;
+    .admin-player-row {
+        background-color: #2d3748; border: 1px solid #4a5568; padding: 6px;
+        border-radius: 8px; text-align: right; margin-bottom: 4px; width: 100%;
     }
 
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #2d3748; border-radius: 8px; overflow: hidden; font-size: 13px; }
-    .stats-table th, .stats-table td { padding: 8px; text-align: center; border: 1px solid #4a5568; }
-    .stats-table th { background-color: #3d495d; color: #22c55e; }
+    /* כפתור 🔄 קטן וצר */
+    .stButton > button[key^="m_"] {
+        width: 100% !important; height: 24px !important; padding: 0px !important;
+        font-size: 11px !important; line-height: 1 !important;
+        background-color: #3d495d !important;
+    }
 
-    div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 8px; }
-    div[data-testid="stRadio"] label { background-color: #2d3748; padding: 8px 16px; border-radius: 10px; border: 1px solid #4a5568; cursor: pointer; }
-    div[data-testid="stRadio"] label[data-checked="true"] { background-color: #4a5568; border-color: #22c55e; }
+    .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #2d3748; font-size: 12px; }
+    .stats-table th, .stats-table td { padding: 5px; text-align: center; border: 1px solid #4a5568; }
+
+    div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 5px; }
+    div[data-testid="stRadio"] label { background-color: #2d3748; padding: 5px 12px; border-radius: 8px; font-size: 14px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -100,7 +98,7 @@ st.session_state.menu_index = 0 if choice == "👤 שחקן" else 1
 
 # --- 4. דף שחקן ---
 if st.session_state.menu_index == 0:
-    st.title("📝 רישום ודירוג")
+    st.title("📝 רישום")
     names = sorted([str(p['name']) for p in st.session_state.players])
     options = ["---", "🆕 חדש"] + names
     try: default_idx = options.index(st.session_state.edit_player)
@@ -131,7 +129,6 @@ if st.session_state.menu_index == 0:
                 else: st.session_state.players.append(new_d)
                 save_data()
                 st.session_state.edit_player = "---"
-                st.success("נשמר!")
                 st.rerun()
 
 # --- 5. דף מנהל ---
@@ -146,7 +143,7 @@ else:
                 age = (2026 - b_y) if isinstance(b_y, (int, float)) else "??"
                 with st.container():
                     c1, c2, c3 = st.columns([3, 0.6, 0.6])
-                    with c1: st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {age} | {str(p.get('pos','-'))[:12]}<br><small>⭐ {f_s:.1f}</small></div>", unsafe_allow_html=True)
+                    with c1: st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {age}<br><small>⭐ {f_s:.1f}</small></div>", unsafe_allow_html=True)
                     with c2:
                         if st.button("✏️", key=f"edit_{i}"):
                             st.session_state.edit_player = p['name']
@@ -168,26 +165,26 @@ else:
                 active.sort(key=lambda x: x['f'], reverse=True)
                 st.session_state.t1, st.session_state.t2 = active[0::2], active[1::2]
             
-            if selected and 't1' in st.session_state:
-                # עמודות
+            if 't1' in st.session_state and selected:
+                # עמודות צמודות במיוחד
                 col1, col2 = st.columns(2)
                 for col, team, label, key_pfx in zip([col1, col2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"], ["w", "b"]):
                     with col:
-                        st.markdown(f"<h5 style='text-align:center;'>{label}</h5>", unsafe_allow_html=True)
+                        st.markdown(f"<h6 style='text-align:center; margin-bottom:5px;'>{label}</h6>", unsafe_allow_html=True)
                         for i, p in enumerate(team):
-                            st.markdown(f"<div class='player-card-mobile'><b>{p['name']}</b><br>⭐{p['f']:.1f}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='player-card-mobile'><b>{p['name']}</b> | {p['f']:.1f}</div>", unsafe_allow_html=True)
                             if st.button("🔄", key=f"m_{key_pfx}_{i}"):
                                 if key_pfx == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
                                 st.rerun()
                 
-                # טבלת מאזנים
+                # טבלת מאזנים צפופה
                 p1, p2 = sum([x['f'] for x in st.session_state.t1]), sum([x['f'] for x in st.session_state.t2])
                 a1 = sum([x['age'] for x in st.session_state.t1])/len(st.session_state.t1) if st.session_state.t1 else 0
                 a2 = sum([x['age'] for x in st.session_state.t2])/len(st.session_state.t2) if st.session_state.t2 else 0
                 st.markdown(f"""
                 <table class="stats-table">
-                    <tr><th>מדד</th><th>⚪ לבן</th><th>⚫ שחור</th></tr>
+                    <tr><th></th><th>לבן</th><th>שחור</th></tr>
                     <tr><td>💪 כוח</td><td>{p1:.1f}</td><td>{p2:.1f}</td></tr>
                     <tr><td>🎂 גיל</td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr>
                 </table>
