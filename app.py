@@ -5,36 +5,48 @@ import random
 import urllib.parse
 import json
 
-# --- 1. עיצוב מותאם לסלולר (Mobile First) ---
-st.set_page_config(page_title="ניהול כדורגל", layout="centered") # תצוגה צרה
+# --- 1. עיצוב מותאם לסלולר ויישור לימין ---
+st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
-    /* כיוון טקסט וישור לימין */
-    .stApp, [data-testid="stSidebar"], .main { direction: rtl; text-align: right; }
+    /* הגדרות כיוון כלליות */
+    .stApp, [data-testid="stSidebar"], .main { 
+        direction: rtl; 
+        text-align: right; 
+    }
     
-    /* הקטנת כותרות באופן גורף */
-    h1 { font-size: 1.5rem !important; margin-bottom: 0.5rem !important; }
+    /* יישור כותרות לימין - תיקון ספציפי */
+    h1, h2, h3, h4, h5, h6, .stMarkdown, p, label {
+        text-align: right !important;
+        direction: rtl !important;
+    }
+
+    /* הקטנת כותרות לסלולר */
+    h1 { font-size: 1.5rem !important; }
     h2 { font-size: 1.3rem !important; }
-    h3 { font-size: 1.1rem !important; margin-top: 0.5rem !important; }
-    p, label, span { font-size: 0.9rem !important; }
+    h3 { font-size: 1.1rem !important; }
     
-    /* התאמת כפתורי הרדיו (דירוג) לסלולר - צמצום רווחים */
-    div[data-role="radiogroup"] { gap: 5px !important; }
-    div[data-testid="stMarkdownContainer"] p { margin-bottom: 2px !important; }
+    /* התאמת רכיבי Streamlit ל-RTL */
+    div[data-testid="stSelectbox"] label, div[data-testid="stNumberInput"] label {
+        text-align: right !important;
+        width: 100%;
+    }
     
-    /* עיצוב כפתורים */
+    /* עיצוב כפתורי רדיו (דירוג) */
+    div[data-role="radiogroup"] { 
+        gap: 5px !important; 
+        justify-content: flex-start !important; /* יישור הכפתורים לתחילת השורה (ימין) */
+        flex-direction: row-reverse !important; /* הפיכת הסדר ש-1 יהיה בימין ו-10 בשמאל אם תרצה, או השאר רגיל */
+    }
+
     .stButton button { 
         width: 100%; 
         border-radius: 6px; 
         background-color: #2e7d32; 
         color: white; 
         height: 2.5rem; 
-        font-size: 1rem !important; 
     }
-    
-    /* צמצום מרווחים למעלה ובצדדים */
-    .block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -96,7 +108,7 @@ if menu == "שחקן":
 
     if final_name:
         st.subheader(f"שחקן: {final_name}")
-        year = st.number_input("לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
+        year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
         
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
         if curr and 'pos' in curr and pd.notna(curr['pos']) and isinstance(curr['pos'], str):
@@ -155,8 +167,8 @@ elif menu == "ניהול מאגר":
         age = 2026 - int(p.get('birth_year', 1995))
         
         with st.container(border=True):
-            st.markdown(f"**{p['name']}**")
-            st.markdown(f"<small>🎂 {age} | 🏃 {p.get('pos', '---')}</small>", unsafe_allow_html=True)
+            st.subheader(p['name'])
+            st.write(f"🎂 {age} | 🏃 {p.get('pos', '---')}")
             
             c = st.columns(3)
             c[0].metric("אישי", f"{float(p.get('rating', 5)):.1f}")
