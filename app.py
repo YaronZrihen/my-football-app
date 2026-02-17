@@ -5,32 +5,33 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS "ברזל" (הכל באחד) ---
+# --- 1. עיצוב CSS סופי ומוחלט (הכל כלול) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
+    /* הגדרות בסיס ויישור לימין */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span { text-align: right !important; direction: rtl; }
-    
-    /* הקטנת כותרות ורווחים */
-    .main-title { font-size: 20px !important; text-align: center !important; margin-bottom: 10px; color: #60a5fa; }
-    .team-header { text-align: center !important; font-size: 13px !important; font-weight: bold; margin-bottom: 4px; }
     .block-container { padding: 5px !important; }
 
-    /* נעילת 2 עמודות בסלולר */
-    .locked-columns [data-testid="stHorizontalBlock"] {
+    /* הקטנה דרסטית של כותרות */
+    .main-title { font-size: 18px !important; text-align: center !important; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
+    .team-header { text-align: center !important; font-size: 12px !important; font-weight: bold; margin-bottom: 4px; }
+
+    /* נעילת שתי עמודות בסלולר - רק באזור הקבוצות */
+    .team-section [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
     }
-    .locked-columns [data-testid="column"] {
+    .team-section [data-testid="column"] {
         flex: 1 1 50% !important;
         min-width: 45% !important;
     }
 
-    /* שורת שחקן סופר-צפופה */
+    /* כרטיס שחקן צפוף מאוד */
     .p-box {
         background: #2d3748;
         border: 1px solid #4a5568;
@@ -40,28 +41,28 @@ st.markdown("""
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        height: 28px;
+        height: 26px;
     }
-    .p-text { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .p-score { color: #22c55e; font-size: 10.5px; margin-right: 4px; }
+    .p-text { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-score { color: #22c55e; font-size: 10px; margin-right: 4px; opacity: 0.9; }
 
-    /* כפתור 🔄 מוקטן */
+    /* כפתור 🔄 מינימליסטי */
     .stButton > button[key^="m_"] {
         width: 100% !important;
-        height: 22px !important;
+        height: 20px !important;
         padding: 0 !important;
-        font-size: 10px !important;
+        font-size: 9px !important;
         background-color: #3d495d !important;
         margin-bottom: 8px;
     }
 
-    /* טבלת מאזן קומפקטית */
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    /* טבלת מאזן מיניאטורית */
+    .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
     .stats-table td { border: 1px solid #4a5568; padding: 4px; text-align: center; background: #2d3748; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. לוגיקה ונתונים ---
+# --- 2. נתונים ולוגיקה ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 if 'players' not in st.session_state:
@@ -89,14 +90,14 @@ def get_player_stats(name):
 
 # --- 3. תפריט ניווט ---
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
-menu = st.pills("תפריט", ["חלוקה", "ניהול מאגר", "הרשמה/עריכה"], default="חלוקה")
+menu = st.pills("תפריט", ["חלוקה", "מאגר", "הרשמה/עריכה"], default="חלוקה")
 
 # --- 4. דף חלוקה ---
 if menu == "חלוקה":
     all_names = sorted([p['name'] for p in st.session_state.players])
-    # מונה שחקנים נבחרים
-    sel_count = len(st.session_state.get('p_sel', []))
-    selected = st.pills(f"מי הגיע? ({sel_count})", all_names, selection_mode="multi", key="p_sel")
+    # מונה שחקנים בכותרת
+    sel_count = len(st.session_state.get('pills_sel', []))
+    selected = st.pills(f"מי הגיע? ({sel_count})", all_names, selection_mode="multi", key="pills_sel")
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected:
@@ -106,22 +107,23 @@ if menu == "חלוקה":
                 s, b = get_player_stats(n)
                 pool.append({'name': n, 'f': s, 'age': curr_y - b})
             pool.sort(key=lambda x: x['f'], reverse=True)
-            # חלוקה מאוזנת (Snake)
+            # חלוקת נחש (Snake)
             t1, t2 = [], []
             for i, p in enumerate(pool):
                 if i % 4 == 0 or i % 4 == 3: t1.append(p)
                 else: t2.append(p)
             st.session_state.t1, st.session_state.t2 = t1, t2
         else:
-            st.warning("בחר שחקנים")
+            st.warning("בחר שחקנים קודם")
 
     if 't1' in st.session_state and selected:
-        st.markdown("<div class='locked-columns'>", unsafe_allow_html=True)
+        st.markdown("<div class='team-section'>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         for col, team, label, pfx in zip([c1, c2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"], ["w", "b"]):
             with col:
                 st.markdown(f"<p class='team-header'>{label} ({len(team)})</p>", unsafe_allow_html=True)
                 for i, p in enumerate(team):
+                    # שם + ציון בסוגריים
                     st.markdown(f"<div class='p-box'><span class='p-text'>{p['name']} <span class='p-score'>({p['f']:.1f})</span></span></div>", unsafe_allow_html=True)
                     if st.button("🔄", key=f"m_{pfx}_{i}"):
                         if pfx == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -143,11 +145,11 @@ if menu == "חלוקה":
         """, unsafe_allow_html=True)
 
         msg = f"⚽ קבוצות:\n\n⚪ לבן:\n" + "\n".join([f"• {x['name']}" for x in st.session_state.t1]) + f"\n\n⚫ שחור:\n" + "\n".join([f"• {x['name']}" for x in st.session_state.t2])
-        st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(msg)}" style="display:block; text-align:center; background:#22c55e; color:white; padding:8px; border-radius:6px; text-decoration:none; margin-top:10px; font-weight:bold; font-size:14px;">📲 שלח לוואטסאפ</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(msg)}" style="display:block; text-align:center; background:#22c55e; color:white; padding:8px; border-radius:6px; text-decoration:none; margin-top:10px; font-weight:bold; font-size:13px;">📲 שלח לוואטסאפ</a>', unsafe_allow_html=True)
 
-# --- 5. דף ניהול מאגר ---
-elif menu == "ניהול מאגר":
-    st.subheader("רשימת שחקנים ומחיקה")
+# --- 5. דף מאגר ---
+elif menu == "מאגר":
+    st.subheader("ניהול שחקנים")
     for i, p in enumerate(st.session_state.players):
         c1, c2 = st.columns([5, 1])
         with c1: st.write(f"**{p['name']}** (יליד {p['birth_year']})")
@@ -159,17 +161,17 @@ elif menu == "ניהול מאגר":
 
 # --- 6. דף הרשמה/עריכה ---
 elif menu == "הרשמה/עריכה":
-    st.subheader("הוספת שחקן חדש או עריכה")
+    st.subheader("הוספה או עריכה")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
-    choice = st.selectbox("בחר שחקן לעריכה או 'חדש':", names)
+    choice = st.selectbox("בחר שחקן:", names)
     
     with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
-        f_rate = st.slider("דירוג עצמי (1-10):", 1, 10, int(p_data['rating']) if p_data else 5)
+        f_rate = st.slider("דירוג (1-10):", 1, 10, int(p_data['rating']) if p_data else 5)
         
-        if st.form_submit_button("שמור במערכת ✅"):
+        if st.form_submit_button("שמור שינויים ✅"):
             if f_name:
                 updated_p = {"name": f_name, "birth_year": f_year, "rating": f_rate, "peer_ratings": p_data['peer_ratings'] if p_data else "{}"}
                 if p_data:
@@ -180,4 +182,3 @@ elif menu == "הרשמה/עריכה":
                 save_data()
                 st.success("הנתונים עודכנו!")
                 st.rerun()
-            else: st.error("חובה להזין שם")
