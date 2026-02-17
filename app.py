@@ -125,20 +125,46 @@ if menu == "שחקן":
                 st.rerun()
 
 # --- 6. ניהול מאגר (Admin) ---
+# --- 6. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר":
-    st.title("👤 ציונים וניהול")
+    st.title("👤 ציונים וניהול מאגר")
+    
+    # חישוב גיל נוכחי
+    current_year = 2026
+    
     for i, p in enumerate(st.session_state.players):
         f, avg, count = get_final_score(p['name'])
+        age = current_year - int(p.get('birth_year', 1995))
+        
         with st.container(border=True):
-            c = st.columns([2, 1, 1, 1, 0.5])
-            c[0].write(f"**{p['name']}**\n<small>{p['pos']}</small>", unsafe_allow_html=True)
-            c[1].metric("אישי", f"{float(p['rating']):.1f}")
+            # חלוקה לעמודות: מידע, ציונים, וכפתורי פעולה
+            c = st.columns([3, 1, 1, 1, 1])
+            
+            # שורה 1: שם | שורה 2: גיל ותפקידים
+            with c[0]:
+                st.markdown(f"### {p['name']}")
+                st.markdown(f"<small>🎂 גיל: {age} | 🏃 תפקיד: {p.get('pos', 'לא הוגדר')}</small>", unsafe_allow_html=True)
+            
+            # הצגת ציונים במטריקות
+            c[1].metric("אישי", f"{float(p.get('rating', 5)):.1f}")
             c[2].metric("חברים", f"{avg:.1f}", f"({count})")
             c[3].metric("סופי", f"{f:.1f}")
-            if c[4].button("🗑️", key=f"del_{i}"):
-                st.session_state.players.pop(i)
-                save_data(st.session_state.players)
-                st.rerun()
+            
+            # עמודת כפתורי פעולה (עריכה ומחיקה)
+            with c[4]:
+                # כפתור עריכה - מעביר לדף שחקן עם השם הנבחר
+                if st.button("📝 עריכה", key=f"edit_{i}"):
+                    # שינוי מצב הגישה והשם ב-session_state כדי "לדמות" בחירה בשחקן
+                    st.session_state.access_mode = "שחקן" 
+                    st.session_state.selected_player_to_edit = p['name']
+                    st.info(f"עובר לעריכת {p['name']}... בחר 'שחקן' בתפריט הצד")
+                    st.rerun()
+                
+                # כפתור מחיקה
+                if st.button("🗑️ מחיקה", key=f"del_{i}"):
+                    st.session_state.players.pop(i)
+                    save_data(st.session_state.players)
+                    st.rerun()
 
 # --- 7. חלוקת קבוצות ---
 elif menu == "חלוקת קבוצות":
@@ -169,3 +195,4 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
