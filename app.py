@@ -47,20 +47,29 @@ st.markdown("""
     /* רדיו אופקי צפוף */
     div[role="radiogroup"] {
         flex-direction: row !important;
-        gap: 6px !important;
+        gap: 8px !important;
         justify-content: flex-start;
     }
     div[data-testid="stWidgetLabel"] p { font-size: 13px !important; margin-bottom: 5px; }
     
     /* הפרדה בין שורות דירוג שחקנים */
-    .peer-row { border-bottom: 1px solid #4a5568; padding: 5px 0; }
+    .peer-row { border-bottom: 1px solid #4a5568; padding: 8px 0; margin-bottom: 5px; }
 
     .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
     .stats-table td { border: 1px solid #4a5568; padding: 4px; text-align: center; background: #2d3748; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. נתונים ---
+# --- 2. לוגיקה לטיפול ב-JSON (פותר את השגיאה שקיבלת) ---
+def parse_peer_ratings(val):
+    if not val or pd.isna(val): return {}
+    if isinstance(val, dict): return val
+    try:
+        return json.loads(val)
+    except:
+        return {}
+
+# --- 3. נתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 if 'players' not in st.session_state:
@@ -79,18 +88,16 @@ def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1995
     r = float(p.get('rating', 5.0))
-    try:
-        pr = json.loads(p.get('peer_ratings', '{}'))
-        peers = [float(v) for v in pr.values()]
-        avg_p = sum(peers)/len(peers) if peers else 0
-    except: avg_p = 0
+    pr = parse_peer_ratings(p.get('peer_ratings', '{}'))
+    peers = [float(v) for v in pr.values()]
+    avg_p = sum(peers)/len(peers) if peers else 0
     return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
 
-# --- 3. תפריט ---
+# --- 4. תפריט ---
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
 menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "עדכון/הרשמה"], default="חלוקה")
 
-# --- 4. דף חלוקה ---
+# --- 5. דף חלוקה ---
 if menu == "חלוקה":
     all_names = sorted([p['name'] for p in st.session_state.players])
     sel_count = len(st.session_state.get('p_sel', []))
@@ -129,7 +136,7 @@ if menu == "חלוקה":
         a2 = sum(x['age'] for x in st.session_state.t2)/len(st.session_state.t2) if st.session_state.t2 else 0
         st.markdown(f"<table class='stats-table'><tr><td><b>נתון</b></td><td>⚪ לבן</td><td>⚫ שחור</td></tr><tr><td><b>כוח</b></td><td>{s1:.1f}</td><td>{s2:.1f}</td></tr><tr><td><b>גיל</b></td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr></table>", unsafe_allow_html=True)
 
-# --- 5. דף מאגר ---
+# --- 6. דף מאגר ---
 elif menu == "מאגר שחקנים":
     st.subheader("ניהול מאגר")
     for i, p in enumerate(st.session_state.players):
@@ -141,7 +148,7 @@ elif menu == "מאגר שחקנים":
                 save_data()
                 st.rerun()
 
-# --- 6. דף עדכון/הרשמה ---
+# --- 7. דף עדכון/הרשמה ---
 elif menu == "עדכון/הרשמה":
     st.subheader("עדכון פרטים")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
@@ -153,23 +160,24 @@ elif menu == "עדכון/הרשמה":
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
-        # תפקידים - שחזור הרשימה המקורית
+        # תפקידים - רשימה מלאה שוחזרה
         st.write("תפקידים:")
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         current_roles = p_data.get('roles', []) if p_data else []
+        if isinstance(current_roles, str): current_roles = current_roles.split(',')
         f_roles = st.pills("בחר תפקידים:", roles_list, selection_mode="multi", default=current_roles)
         
         # דירוג עצמי - רדיו בשורה
         f_rate = st.radio("דירוג עצמי (1-10):", options=range(1, 11), 
                          index=int(p_data['rating'])-1 if p_data else 4, horizontal=True)
         
-        # דירוג שחקנים אחרים - רשימה פתוחה ללא DROPDOWN
+        # דירוג שחקנים אחרים - רשימה פתוחה ללא dropdown
         st.write("---")
         st.write("דרג שחקנים אחרים:")
         other_players = [p for p in st.session_state.players if p['name'] != f_name]
         peer_ratings_input = {}
         
-        existing_peers = json.loads(p_data['peer_ratings']) if p_data and p_data.get('peer_ratings') else {}
+        existing_peers = parse_peer_ratings(p_data.get('peer_ratings', '{}') if p_data else '{}')
 
         for op in other_players:
             op_name = op['name']
