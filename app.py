@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS (RTL, צפיפות, נעילת עמודות) ---
+# --- 1. עיצוב CSS (החזרת עיצוב המאגר והחלוקה) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -15,9 +15,19 @@ st.markdown("""
     .block-container { padding: 5px !important; }
 
     .main-title { font-size: 18px !important; text-align: center !important; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
-    .team-header { text-align: center !important; font-size: 12px !important; font-weight: bold; margin-bottom: 4px; }
+    
+    /* עיצוב כרטיסי שחקן במאגר */
+    .database-card {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    .card-title { font-size: 16px; font-weight: bold; color: #60a5fa; margin-bottom: 4px; }
+    .card-detail { font-size: 13px; color: #cbd5e0; }
 
-    /* נעילת 2 עמודות בסלולר */
+    /* נעילת 2 עמודות בסלולר (חלוקה) */
     .team-section [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -41,35 +51,22 @@ st.markdown("""
         align-items: center;
         height: 26px;
     }
-    .p-text { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-text { font-size: 12px; }
     .p-score { color: #22c55e; font-size: 10px; margin-right: 4px; }
 
-    /* רדיו אופקי צפוף */
-    div[role="radiogroup"] {
-        flex-direction: row !important;
-        gap: 8px !important;
-        justify-content: flex-start;
-    }
-    div[data-testid="stWidgetLabel"] p { font-size: 13px !important; margin-bottom: 5px; }
-    
-    /* הפרדה בין שורות דירוג שחקנים */
-    .peer-row { border-bottom: 1px solid #4a5568; padding: 8px 0; margin-bottom: 5px; }
-
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-    .stats-table td { border: 1px solid #4a5568; padding: 4px; text-align: center; background: #2d3748; }
+    /* רדיו אופקי */
+    div[role="radiogroup"] { flex-direction: row !important; gap: 8px !important; }
+    .peer-row { border-bottom: 1px solid #4a5568; padding: 8px 0; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. לוגיקה לטיפול ב-JSON (פותר את השגיאה שקיבלת) ---
+# --- 2. עזרים ונתונים ---
 def parse_peer_ratings(val):
     if not val or pd.isna(val): return {}
     if isinstance(val, dict): return val
-    try:
-        return json.loads(val)
-    except:
-        return {}
+    try: return json.loads(val)
+    except: return {}
 
-# --- 3. נתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 if 'players' not in st.session_state:
@@ -93,11 +90,11 @@ def get_player_stats(name):
     avg_p = sum(peers)/len(peers) if peers else 0
     return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
 
-# --- 4. תפריט ---
+# --- 3. תפריט ---
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
 menu = st.pills("תפריט", ["חלוקה", "מאגר שחקנים", "עדכון/הרשמה"], default="חלוקה")
 
-# --- 5. דף חלוקה ---
+# --- 4. דף חלוקה (הכל משוחזר) ---
 if menu == "חלוקה":
     all_names = sorted([p['name'] for p in st.session_state.players])
     sel_count = len(st.session_state.get('p_sel', []))
@@ -122,7 +119,7 @@ if menu == "חלוקה":
         c1, c2 = st.columns(2)
         for col, team, label, pfx in zip([c1, c2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"], ["w", "b"]):
             with col:
-                st.markdown(f"<p class='team-header'>{label} ({len(team)})</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align:center;font-size:12px;font-weight:bold;'>{label} ({len(team)})</p>", unsafe_allow_html=True)
                 for i, p in enumerate(team):
                     st.markdown(f"<div class='p-box'><span class='p-text'>{p['name']} <span class='p-score'>({p['f']:.1f})</span></span></div>", unsafe_allow_html=True)
                     if st.button("🔄", key=f"m_{pfx}_{i}"):
@@ -131,78 +128,69 @@ if menu == "חלוקה":
                         st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        s1, s2 = sum(x['f'] for x in st.session_state.t1), sum(x['f'] for x in st.session_state.t2)
-        a1 = sum(x['age'] for x in st.session_state.t1)/len(st.session_state.t1) if st.session_state.t1 else 0
-        a2 = sum(x['age'] for x in st.session_state.t2)/len(st.session_state.t2) if st.session_state.t2 else 0
-        st.markdown(f"<table class='stats-table'><tr><td><b>נתון</b></td><td>⚪ לבן</td><td>⚫ שחור</td></tr><tr><td><b>כוח</b></td><td>{s1:.1f}</td><td>{s2:.1f}</td></tr><tr><td><b>גיל</b></td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr></table>", unsafe_allow_html=True)
-
-# --- 6. דף מאגר ---
+# --- 5. דף מאגר (משוחזר ומעוצב!) ---
 elif menu == "מאגר שחקנים":
-    st.subheader("ניהול מאגר")
+    st.subheader("🗄️ מאגר שחקנים")
     for i, p in enumerate(st.session_state.players):
-        c1, c2 = st.columns([5, 1])
-        with c1: st.write(f"**{p['name']}** (יליד {p['birth_year']})")
-        with c2:
-            if st.button("🗑️", key=f"del_{i}"):
+        # חישוב דירוג משוקלל להצגה
+        score, _ = get_player_stats(p['name'])
+        with st.container():
+            st.markdown(f"""
+                <div class='database-card'>
+                    <div class='card-title'>{p['name']}</div>
+                    <div class='card-detail'>שנת לידה: {p['birth_year']} | דירוג משוקלל: {score:.1f}</div>
+                    <div class='card-detail'>תפקידים: {p.get('roles', 'לא הוגדר')}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"🗑️ מחק את {p['name']}", key=f"del_{i}", use_container_width=True):
                 st.session_state.players.pop(i)
                 save_data()
                 st.rerun()
+            st.write("")
 
-# --- 7. דף עדכון/הרשמה ---
+# --- 6. דף עדכון/הרשמה (דירוג פתוח ותפקידים) ---
 elif menu == "עדכון/הרשמה":
-    st.subheader("עדכון פרטים")
+    st.subheader("📝 עדכון פרטים")
     names = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", names)
     
     with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
-        
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
-        # תפקידים - רשימה מלאה שוחזרה
-        st.write("תפקידים:")
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         current_roles = p_data.get('roles', []) if p_data else []
         if isinstance(current_roles, str): current_roles = current_roles.split(',')
-        f_roles = st.pills("בחר תפקידים:", roles_list, selection_mode="multi", default=current_roles)
+        f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=current_roles)
         
-        # דירוג עצמי - רדיו בשורה
         f_rate = st.radio("דירוג עצמי (1-10):", options=range(1, 11), 
                          index=int(p_data['rating'])-1 if p_data else 4, horizontal=True)
         
-        # דירוג שחקנים אחרים - רשימה פתוחה ללא dropdown
         st.write("---")
-        st.write("דרג שחקנים אחרים:")
+        st.write("דרג שחקנים אחרים (רשימה פתוחה):")
         other_players = [p for p in st.session_state.players if p['name'] != f_name]
         peer_ratings_input = {}
-        
         existing_peers = parse_peer_ratings(p_data.get('peer_ratings', '{}') if p_data else '{}')
 
         for op in other_players:
             op_name = op['name']
             current_val = existing_peers.get(op_name, 5)
             st.markdown(f"<div class='peer-row'>", unsafe_allow_html=True)
-            val = st.radio(f"ציון ל{op_name}:", options=range(1, 11), index=int(current_val)-1, horizontal=True, key=f"pr_{op_name}")
-            peer_ratings_input[op_name] = val
+            peer_ratings_input[op_name] = st.radio(f"ציון ל{op_name}:", options=range(1, 11), 
+                                                 index=int(current_val)-1, horizontal=True, key=f"pr_{op_name}")
             st.markdown("</div>", unsafe_allow_html=True)
 
         if st.form_submit_button("שמור שינויים ✅", use_container_width=True):
             if f_name:
                 updated_p = {
-                    "name": f_name, 
-                    "birth_year": f_year, 
-                    "rating": f_rate, 
-                    "roles": f_roles,
-                    "peer_ratings": json.dumps(peer_ratings_input)
+                    "name": f_name, "birth_year": f_year, "rating": f_rate, 
+                    "roles": ",".join(f_roles), "peer_ratings": json.dumps(peer_ratings_input)
                 }
-                
                 if p_data:
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)
                     st.session_state.players[idx] = updated_p
-                else:
-                    st.session_state.players.append(updated_p)
-                
+                else: st.session_state.players.append(updated_p)
                 save_data()
-                st.success("הנתונים נשמרו בהצלחה!")
+                st.success("נשמר!")
                 st.rerun()
