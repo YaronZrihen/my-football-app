@@ -5,22 +5,13 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב Soft Dark + יישור הדוק לימין ---
+# --- 1. עיצוב UI סופי (כהה, יישור ימין, כפתורים קטנים) ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { 
-        background-color: #1a1c23; 
-        color: #e2e8f0;
-        direction: rtl; 
-        text-align: right; 
-    }
-    
-    h1, h2, h3, h4, p, label, span, .stMetric label { 
-        color: #e2e8f0 !important; 
-        text-align: right !important; 
-    }
+    .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
+    h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
 
     /* כרטיס שחקן מיושר לימין */
     .player-card {
@@ -28,51 +19,30 @@ st.markdown("""
         border: 1px solid #4a5568;
         padding: 8px 12px;
         border-radius: 8px;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
         text-align: right;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }
     
-    /* הקטנת כפתורי העברה (🔄) */
+    /* כפתור העברה קטנטן */
     .stButton > button[key^="move_"] {
-        width: 35px !important;
-        height: 30px !important;
-        min-width: 35px !important;
+        width: 40px !important;
+        height: 25px !important;
         padding: 0px !important;
-        font-size: 14px !important;
-        line-height: 1 !important;
+        font-size: 12px !important;
         background-color: #4a5568 !important;
-        border: 1px solid #718096 !important;
-        margin-top: 5px;
+        margin-top: 2px;
     }
 
-    div[data-testid="stSegmentedControl"] {
-        background-color: #2d3748;
-        border-radius: 10px;
-        padding: 5px;
-        margin-top: 20px !important;
-    }
+    /* התאמת Pills (כפתורי בחירה) למראה כהה */
+    div[data-testid="stWidgetLabel"] p { font-weight: bold !important; font-size: 1.1rem !important; }
     
-    .stButton button { 
-        width: 100%; 
-        border-radius: 8px; 
-        background-color: #4a5568 !important; 
-        color: #ffffff !important; 
-        height: 3rem;
-        border: none;
-    }
-
-    input, select, textarea {
-        background-color: #2d3748 !important;
-        color: white !important;
-        border: 1px solid #4a5568 !important;
-    }
+    .stButton button { width: 100%; border-radius: 8px; background-color: #4a5568 !important; color: white; height: 3rem; border: none; }
+    
+    div[data-testid="stSegmentedControl"] { background-color: #2d3748; border-radius: 10px; padding: 5px; margin-top: 20px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. לוגיקה וחיבור נתונים ---
+# --- 2. לוגיקה ונתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 curr_year = datetime.now().year
 
@@ -113,14 +83,11 @@ if menu == "👤 שחקן":
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
     sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names)
     
-    final_name, curr = "", None
-    if sel == "🆕 חדש": final_name = st.text_input("שם מלא:")
-    elif sel != "---":
-        final_name = sel
-        curr = next((p for p in st.session_state.players if p['name'] == final_name), None)
-
-    if final_name:
-        with st.container(border=True):
+    if sel != "---":
+        final_name = st.text_input("שם מלא:", value=sel if sel != "🆕 חדש" else "")
+        curr = next((p for p in st.session_state.players if p['name'] == sel), None)
+        
+        if final_name:
             st.subheader(f"פרופיל: {final_name}")
             y = st.number_input("שנת לידה:", 1950, curr_year, int(curr['birth_year']) if curr else 1995)
             roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
@@ -129,26 +96,23 @@ if menu == "👤 שחקן":
             
             st.write("**דירוג עצמי:**")
             rate = st.radio("r", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True, label_visibility="collapsed")
-        
-        st.divider()
-        st.subheader("⭐ דרג חברים")
-        p_ratings = {}
-        try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
-        except: p_ratings = {}
+            
+            st.divider()
+            st.subheader("⭐ דרג חברים")
+            p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
+            for p in st.session_state.players:
+                if p['name'] != final_name:
+                    st.write(p['name'])
+                    p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, label_visibility="collapsed")
 
-        for p in st.session_state.players:
-            if p['name'] != final_name:
-                st.write(p['name'])
-                p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, label_visibility="collapsed")
-
-        if st.button("שמור הכל ✅"):
-            new_p = {"name": final_name, "birth_year": y, "pos": ", ".join(selected_pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
-            idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
-            if idx is not None: st.session_state.players[idx] = new_p
-            else: st.session_state.players.append(new_p)
-            save_data(st.session_state.players)
-            st.success("נשמר!")
-            st.rerun()
+            if st.button("שמור הכל ✅"):
+                new_p = {"name": final_name, "birth_year": y, "pos": ", ".join(selected_pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
+                idx = next((i for i, pl in enumerate(st.session_state.players) if pl['name'] == final_name), None)
+                if idx is not None: st.session_state.players[idx] = new_p
+                else: st.session_state.players.append(new_p)
+                save_data(st.session_state.players)
+                st.success("נשמר!")
+                st.rerun()
 
 # --- 5. דף מנהל ---
 elif menu == "⚙️ מנהל":
@@ -171,27 +135,28 @@ elif menu == "⚙️ מנהל":
                         st.rerun()
         
         elif admin_act == "חלוקה":
+            st.subheader("בחר שחקנים שהגיעו:")
             pool = []
             for p in st.session_state.players:
                 f_s, _, b_y = get_stats(p['name'])
                 pool.append({**p, "f": f_s, "age": curr_year-b_y})
             
-            selected = st.multiselect("מי הגיע?", [p['name'] for p in pool])
+            # שימוש ב-Pills במקום Dropdown לבחירה מהירה
+            selected_names = st.pills("שחקנים זמינים:", [p['name'] for p in pool], selection_mode="multi")
             
-            if "t1" not in st.session_state or st.button("חלוקה אוטומטית 🚀"):
-                active = [p for p in pool if p['name'] in selected]
+            if st.button("חלק קבוצות 🚀"):
+                active = [p for p in pool if p['name'] in selected_names]
                 active.sort(key=lambda x: x['f'], reverse=True)
                 st.session_state.t1 = active[0::2]
                 st.session_state.t2 = active[1::2]
 
-            if selected:
+            if selected_names and 't1' in st.session_state:
                 col1, col2 = st.columns(2)
                 for col, team, label in zip([col1, col2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"]):
                     with col:
                         st.subheader(label)
                         for i, p in enumerate(team):
-                            # כרטיס שחקן מיושר לימין עם כפתור קטן
-                            st.markdown(f"<div class='player-card'><b>{p['name']}</b><small>{p['age']} | {p.get('pos','-')} | ⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='player-card'><b>{p['name']}</b><br><small>{p['age']} | {p.get('pos','-')} | ⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
                             if st.button("🔄", key=f"move_{label}_{i}"):
                                 if label == "⚪ לבן": st.session_state.t2.append(st.session_state.t1.pop(i))
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
@@ -202,10 +167,10 @@ elif menu == "⚙️ מנהל":
                 age2 = sum([p['age'] for p in st.session_state.t2])/len(st.session_state.t2) if st.session_state.t2 else 0
                 
                 with st.container(border=True):
-                    st.write(f"📊 **סיכום:**")
-                    st.write(f"💪 **עוצמה:** לבן {p1:.1f} | שחור {p2:.1f}")
-                    st.write(f"🎂 **גיל:** לבן {age1:.1f} | שחור {age2:.1f}")
+                    st.write(f"📊 **סיכום מאזנים:**")
+                    st.write(f"💪 **עוצמה:** לבן **{p1:.1f}** | שחור **{p2:.1f}**")
+                    st.write(f"🎂 **ממוצע גיל:** לבן **{age1:.1f}** | שחור **{age2:.1f}**")
 
-                msg = f"⚽ הקבוצות:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
+                msg = f"⚽ הקבוצות להיום:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
                 msg += f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
                 st.markdown(f'[📲 שלח לוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
