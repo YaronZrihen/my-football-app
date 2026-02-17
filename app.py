@@ -79,6 +79,7 @@ if menu == "שחקן":
 
     if final_name:
         st.subheader(f"פרופיל: {final_name}")
+        
         year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
         
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
@@ -87,10 +88,19 @@ if menu == "שחקן":
         else: def_roles = []
         selected_pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_roles)
         
-        rate = st.slider("דירוג אישי (כמה אתה חזק):", 1, 10, int(curr['rating']) if curr and 'rating' in curr else 5)
+        st.write("") # מרווח קטן
+        # --- השינוי כאן: דירוג אישי באמצעות כפתורי רדיו ---
+        rate = st.radio(
+            "דרג את היכולת שלך (כמה אתה חזק):",
+            options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            index=int(curr['rating'] - 1) if curr and 'rating' in curr else 4,
+            horizontal=True,
+            key="self_rating_radio"
+        )
         
         st.divider()
         st.subheader("⭐ דרג חברים")
+        st.info("דרג את רמת המשחק של החברים (1 = חלש, 10 = חזק מאוד)")
         
         p_ratings = {}
         try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr and pd.notna(curr['peer_ratings']) else {}
@@ -120,10 +130,10 @@ if menu == "שחקן":
                 else: st.session_state.players.append(new_p)
                 
                 save_data(st.session_state.players)
-                st.success("הנתונים נשמרו!")
+                st.success("הנתונים נשמרו בגיליון!")
                 st.balloons()
                 st.rerun()
-
+                
 # --- 6. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר":
     st.title("👤 ניהול מאגר וציונים")
@@ -199,5 +209,6 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
 
