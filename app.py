@@ -12,26 +12,33 @@ st.markdown("""
     h1, h2, h3, p, label, span { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
-    
-    .database-card {
-        background: #2d3748;
-        border: 1px solid #4a5568;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 5px;
-        text-align: right;
-    }
+    .database-card { background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px; text-align: right; }
     .card-title { font-size: 18px; font-weight: bold; color: #60a5fa; }
-    
-    /* כפתורי מאגר 80/20 */
-    .stButton button { width: 100%; height: 40px; }
-    
-    /* עיצוב רדיו בשורה */
     div[role="radiogroup"] { flex-direction: row !important; gap: 10px !important; justify-content: flex-start; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. חיבור לנתונים ---
+# --- 2. פונקציות עזר קריטיות (הגנה משגיאות) ---
+def safe_split(val):
+    """פיצול בטוח של מחרוזת לרשימה"""
+    if not val or pd.isna(val):
+        return []
+    if isinstance(val, list):
+        return val
+    return str(val).split(',')
+
+def safe_get_json(val):
+    """טעינת JSON בטוחה"""
+    if not val or pd.isna(val):
+        return {}
+    if isinstance(val, dict):
+        return val
+    try:
+        return json.loads(str(val))
+    except:
+        return {}
+
+# --- 3. חיבור לנתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 if 'players' not in st.session_state:
@@ -50,33 +57,23 @@ def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1995
     r = float(p.get('rating', 5.0))
-    pr_raw = p.get('peer_ratings', '{}')
-    try:
-        pr = json.loads(pr_raw) if isinstance(pr_raw, str) else pr_raw
-    except:
-        pr = {}
+    pr = safe_get_json(p.get('peer_ratings', '{}'))
     peers = [float(v) for v in pr.values()] if isinstance(pr, dict) else []
     avg_p = sum(peers)/len(peers) if peers else 0
     return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
 
-# --- 3. ניהול ניווט (גרסה יציבה ללא Pills לניווט ראשי) ---
-if 'page' not in st.session_state:
-    st.session_state.page = "חלוקה"
+# --- 4. ניהול ניווט ---
 if 'edit_name' not in st.session_state:
     st.session_state.edit_name = "🆕 שחקן חדש"
 
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל</div>", unsafe_allow_html=True)
 
-# שימוש ב-Tabs במקום Pills לניווט ראשי למניעת שגיאות בשרת
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# לוגיקת מעבר בין טאבים (במקרה של עריכה)
-# אם לחצו על עריכה, ה-state ישתנה והקוד ידע לאן ללכת
-
-# --- 4. טאב חלוקה ---
+# --- 5. טאב חלוקה ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
-    selected = st.multiselect(f"מי הגיע? ({len(all_names)})", all_names)
+    selected = st.multiselect(f"מי הגיע?", all_names)
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected:
@@ -99,7 +96,7 @@ with tab1:
                 for p in team:
                     st.markdown(f"<div style='background:#2d3748; padding:5px; border-radius:5px; margin-bottom:2px;'>{p['name']} ({p['f']:.1f})</div>", unsafe_allow_html=True)
 
-# --- 5. טאב מאגר שחקנים ---
+# --- 6. טאב מאגר שחקנים ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
@@ -108,29 +105,26 @@ with tab2:
             <div class='database-card'>
                 <div class='card-title'>{p['name']}</div>
                 <div class='card-detail'>גיל: {2026 - birth} | ציון: {score:.1f}</div>
-                <div class='card-detail'>תפקידים: {p.get('roles', '')}</div>
+                <div class='card-detail'>תפקידים: {p.get('roles', 'לא הוגדר')}</div>
             </div>
         """, unsafe_allow_html=True)
         
         col_edit, col_del = st.columns([4, 1])
         with col_edit:
-            # הדרך הכי בטוחה לערוך ב-Tabs
             if st.button(f"📝 עריכת {p['name']}", key=f"ed_{i}"):
                 st.session_state.edit_name = p['name']
-                st.info(f"השחקן {p['name']} נבחר. עבור ללשונית 'עדכון/הרשמה' לביצוע השינויים.")
+                st.info("נבחר! עבור לטאב עדכון/הרשמה.")
         with col_del:
             if st.button("🗑️", key=f"dl_{i}"):
                 st.session_state.players.pop(i)
                 save_to_gsheets()
                 st.rerun()
-        st.markdown("---")
 
-# --- 6. טאב עדכון/הרשמה ---
+# --- 7. טאב עדכון/הרשמה (התיקון לשגיאה שלך כאן) ---
 with tab3:
     st.subheader("עדכון פרטים")
     names_list = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     
-    # בחירת השחקן (נטען אוטומטית אם נלחץ 'עריכה')
     target = st.session_state.get('edit_name', "🆕 שחקן חדש")
     if target not in names_list: target = "🆕 שחקן חדש"
     
@@ -138,26 +132,23 @@ with tab3:
     
     with st.form("edit_form"):
         p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
+        
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
-        # שימוש ב-multiselect במקום pills למניעת שגיאות גרסה
-        f_roles = st.multiselect("תפקידים:", roles_list, default=p_data.get('roles', '').split(',') if p_data and p_data.get('roles') else [])
         
-        f_rate = st.radio("ציון עצמי (1-10):", range(1, 11), index=int(p_data.get('rating', 5))-1, horizontal=True)
+        # שימוש בפונקציית ההגנה safe_split כדי למנוע את קריסת ה-split(',')
+        existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
+        f_roles = st.multiselect("תפקידים:", roles_list, default=[r for r in existing_roles if r in roles_list])
+        
+        f_rate = st.radio("ציון עצמי (1-10):", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
         st.write("דירוג שחקנים אחרים:")
         other_players = [p for p in st.session_state.players if p['name'] != f_name]
         peer_results = {}
-        
-        # טעינת דירוגי עמיתים קיימים
-        existing_raw = p_data.get('peer_ratings', '{}') if p_data else '{}'
-        try:
-            existing_peers = json.loads(existing_raw) if isinstance(existing_raw, str) else existing_raw
-        except:
-            existing_peers = {}
+        existing_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
 
         for op in other_players:
             op_name = op['name']
@@ -180,5 +171,5 @@ with tab3:
                     st.session_state.players.append(updated_entry)
                 save_to_gsheets()
                 st.session_state.edit_name = f_name
-                st.success("הנתונים נשמרו בהצלחה!")
+                st.success("נשמר!")
                 st.rerun()
