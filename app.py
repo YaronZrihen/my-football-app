@@ -5,12 +5,11 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב Soft Dark (אפס לבן בוהק) ---
+# --- 1. עיצוב Soft Dark + יישור הדוק לימין ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
     <style>
-    /* רקע כהה עמוק וסולידי */
     .stApp { 
         background-color: #1a1c23; 
         color: #e2e8f0;
@@ -18,23 +17,37 @@ st.markdown("""
         text-align: right; 
     }
     
-    /* טקסטים וכותרות בגוון אוף-וויט נעים */
     h1, h2, h3, h4, p, label, span, .stMetric label { 
         color: #e2e8f0 !important; 
         text-align: right !important; 
     }
 
-    /* כרטיסי שחקן בעיצוב כהה מובחן */
+    /* כרטיס שחקן מיושר לימין */
     .player-card {
         background-color: #2d3748;
         border: 1px solid #4a5568;
-        padding: 12px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
-    /* ניווט עליון - אפור כהה */
+    /* הקטנת כפתורי העברה (🔄) */
+    .stButton > button[key^="move_"] {
+        width: 35px !important;
+        height: 30px !important;
+        min-width: 35px !important;
+        padding: 0px !important;
+        font-size: 14px !important;
+        line-height: 1 !important;
+        background-color: #4a5568 !important;
+        border: 1px solid #718096 !important;
+        margin-top: 5px;
+    }
+
     div[data-testid="stSegmentedControl"] {
         background-color: #2d3748;
         border-radius: 10px;
@@ -42,33 +55,19 @@ st.markdown("""
         margin-top: 20px !important;
     }
     
-    div[data-testid="stSegmentedControl"] button {
-        color: #cbd5e0 !important;
-    }
-
-    /* כפתור שמירה - אפור-כחול יוקרתי */
     .stButton button { 
         width: 100%; 
-        border-radius: 10px; 
+        border-radius: 8px; 
         background-color: #4a5568 !important; 
         color: #ffffff !important; 
-        height: 3.5rem;
+        height: 3rem;
         border: none;
     }
 
-    /* תיבות קלט בעיצוב כהה */
     input, select, textarea {
         background-color: #2d3748 !important;
         color: white !important;
         border: 1px solid #4a5568 !important;
-    }
-
-    /* מדדים (Metrics) */
-    [data-testid="stMetric"] {
-        background-color: #2d3748;
-        border: 1px solid #4a5568;
-        border-radius: 10px;
-        padding: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -191,21 +190,21 @@ elif menu == "⚙️ מנהל":
                     with col:
                         st.subheader(label)
                         for i, p in enumerate(team):
-                            st.markdown(f"<div class='player-card'><b>{p['name']}</b><br><small>{p['age']} | {p.get('pos','-')} | ⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
+                            # כרטיס שחקן מיושר לימין עם כפתור קטן
+                            st.markdown(f"<div class='player-card'><b>{p['name']}</b><small>{p['age']} | {p.get('pos','-')} | ⭐{p['f']:.1f}</small></div>", unsafe_allow_html=True)
                             if st.button("🔄", key=f"move_{label}_{i}"):
                                 if label == "⚪ לבן": st.session_state.t2.append(st.session_state.t1.pop(i))
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
                                 st.rerun()
 
-                # --- סיכום מאזנים (כוחות וגיל) ---
                 p1, p2 = sum([p['f'] for p in st.session_state.t1]), sum([p['f'] for p in st.session_state.t2])
                 age1 = sum([p['age'] for p in st.session_state.t1])/len(st.session_state.t1) if st.session_state.t1 else 0
                 age2 = sum([p['age'] for p in st.session_state.t2])/len(st.session_state.t2) if st.session_state.t2 else 0
                 
                 with st.container(border=True):
-                    st.write(f"📊 **סיכום מאזנים:**")
-                    st.write(f"💪 **עוצמה:** לבן **{p1:.1f}** | שחור **{p2:.1f}**")
-                    st.write(f"🎂 **ממוצע גיל:** לבן **{age1:.1f}** | שחור **{age2:.1f}**")
+                    st.write(f"📊 **סיכום:**")
+                    st.write(f"💪 **עוצמה:** לבן {p1:.1f} | שחור {p2:.1f}")
+                    st.write(f"🎂 **גיל:** לבן {age1:.1f} | שחור {age2:.1f}")
 
                 msg = f"⚽ הקבוצות:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
                 msg += f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
