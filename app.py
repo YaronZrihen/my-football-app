@@ -109,7 +109,7 @@ if menu == "שחקן":
         for p in st.session_state.players:
             if p['name'] != final_name:
                 p_ratings[p['name']] = st.radio(
-                    f"רמה של {p['name']}:",
+                    f"{p['name']}:",
                     options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                     index=int(p_ratings.get(p['name'], 5)) - 1,
                     horizontal=True,
@@ -209,6 +209,7 @@ elif menu == "חלוקת קבוצות":
             msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
+
 
 
 
