@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from datetime import datetime
 
-# --- 1. עיצוב CSS מעודכן (יישור לימין והוספת גיל) ---
+# --- 1. עיצוב CSS מעודכן ---
 st.set_page_config(page_title="ניהול כדורגל", layout="centered")
 
 st.markdown("""
@@ -13,14 +13,22 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     .block-container { padding: 10px !important; }
     
-    /* יישור כותרות וטקסט כללי לימין */
+    /* יישור כללי לימין */
     h1, h2, h3, h4, h5, p, label, span { text-align: right !important; direction: rtl; }
+    
+    /* הקטנת כותרות הקבוצות */
+    .team-header { 
+        text-align: center !important; 
+        font-size: 14px !important; 
+        font-weight: bold; 
+        margin-bottom: 5px; 
+    }
 
     /* נעילת שתי עמודות ב-Grid */
     div[data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
-        gap: 8px !important;
+        gap: 6px !important;
     }
     
     div[data-testid="column"] {
@@ -29,7 +37,7 @@ st.markdown("""
         flex: none !important;
     }
 
-    /* כרטיס שחקן צפוף */
+    /* כרטיס שחקן צפוף מאוד */
     .p-box {
         background: #2d3748;
         border: 1px solid #4a5568;
@@ -37,41 +45,48 @@ st.markdown("""
         padding: 4px 8px;
         margin-bottom: 2px;
         display: flex;
-        flex-direction: row-reverse; /* לשמירה על סדר שם מימין וציון משמאל */
-        justify-content: space-between;
+        justify-content: flex-start; /* הצמדה לימין */
         align-items: center;
-        height: 32px;
+        height: 28px;
+        direction: rtl;
     }
-    .p-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; flex-grow: 1; }
-    .p-score { font-size: 11px; color: #22c55e; font-weight: bold; margin-right: 5px; }
+    .p-text { 
+        font-size: 12.5px; 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+    }
+    .p-score-inline { 
+        color: #22c55e; 
+        font-size: 11px; 
+        margin-right: 4px; 
+    }
 
-    /* כפתור 🔄 */
+    /* כפתור 🔄 דק */
     .stButton > button[key^="m_"] {
         width: 100% !important;
-        height: 24px !important;
+        height: 22px !important;
         line-height: 1 !important;
         padding: 0 !important;
-        font-size: 11px !important;
-        margin-bottom: 10px;
+        font-size: 10px !important;
+        margin-bottom: 8px;
         background-color: #3d495d !important;
     }
 
-    /* טבלת מאזן (כולל גיל) */
+    /* טבלת מאזן מוקטנת */
     .stats-table {
         width: 100%;
-        margin-top: 15px;
+        margin-top: 12px;
         border-collapse: collapse;
         background: #2d3748;
-        direction: rtl;
+        font-size: 12px;
     }
     .stats-table td {
-        padding: 6px;
+        padding: 4px;
         text-align: center;
         border: 1px solid #4a5568;
-        font-size: 13px;
     }
-    .stats-table b { color: #22c55e; }
-    .stats-header { background: #1a1c23; font-weight: bold; }
+    .stats-header-row { background: #1a1c23; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -86,21 +101,15 @@ if 'players' not in st.session_state:
 def get_player_info(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1995
-    
-    # חישוב ציון
     r = float(p.get('rating', 5.0))
     try:
         pr = json.loads(p.get('peer_ratings', '{}'))
         peers = [float(v) for v in pr.values()]
         avg_p = sum(peers)/len(peers) if peers else 0
     except: avg_p = 0
-    final_score = (r + avg_p) / 2 if avg_p > 0 else r
-    
-    # חילוץ שנת לידה
-    birth_year = int(p.get('birth_year', 1995))
-    return final_score, birth_year
+    return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
 
-# --- 3. ממשק ---
+# --- 3. ממשק חלוקה ---
 st.title("⚽ חלוקת קבוצות")
 
 all_names = sorted([p['name'] for p in st.session_state.players])
@@ -124,12 +133,12 @@ if 't1' in st.session_state and selected:
     
     for col, team, label, pfx in teams:
         with col:
-            st.markdown(f"<p style='text-align:center; font-weight:bold; margin-bottom:5px;'>{label}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p class='team-header'>{label}</p>", unsafe_allow_html=True)
             for i, p in enumerate(team):
+                # תצוגת שם וציון בסוגריים באותה שורה
                 st.markdown(f"""
                     <div class='p-box'>
-                        <span class='p-name'>{p['name']}</span>
-                        <span class='p-score'>{p['f']:.1f}</span>
+                        <span class='p-text'>{p['name']} <span class='p-score-inline'>({p['f']:.1f})</span></span>
                     </div>
                 """, unsafe_allow_html=True)
                 if st.button("🔄", key=f"m_{pfx}_{i}"):
@@ -137,7 +146,7 @@ if 't1' in st.session_state and selected:
                     else: st.session_state.t1.append(st.session_state.t2.pop(i))
                     st.rerun()
 
-    # --- 4. מאזן מעודכן (כוח + גיל) ---
+    # --- 4. מאזן (כוח + גיל) ---
     s1 = sum(p['f'] for p in st.session_state.t1)
     s2 = sum(p['f'] for p in st.session_state.t2)
     a1 = sum(p['age'] for p in st.session_state.t1) / len(st.session_state.t1) if st.session_state.t1 else 0
@@ -145,7 +154,7 @@ if 't1' in st.session_state and selected:
     
     st.markdown(f"""
         <table class="stats-table">
-            <tr class="stats-header">
+            <tr class="stats-header-row">
                 <td>נתון</td>
                 <td>⚪ לבן</td>
                 <td>⚫ שחור</td>
@@ -156,13 +165,13 @@ if 't1' in st.session_state and selected:
                 <td><b>{s2:.1f}</b></td>
             </tr>
             <tr>
-                <td><b>גיל ממוצע</b></td>
+                <td><b>גיל</b></td>
                 <td>{a1:.1f}</td>
                 <td>{a2:.1f}</td>
             </tr>
         </table>
     """, unsafe_allow_html=True)
 
-    # וואטסאפ
+    # כפתור וואטסאפ
     msg = f"⚽ קבוצות:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1]) + f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
-    st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(msg)}" style="display:block; text-align:center; background:#22c55e; color:white; padding:10px; border-radius:6px; text-decoration:none; margin-top:15px; font-weight:bold;">📲 שלח לוואטסאפ</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(msg)}" style="display:block; text-align:center; background:#22c55e; color:white; padding:10px; border-radius:6px; text-decoration:none; margin-top:15px; font-weight:bold; font-size:14px;">📲 שלח לוואטסאפ</a>', unsafe_allow_html=True)
