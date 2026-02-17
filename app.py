@@ -5,19 +5,36 @@ import random
 import urllib.parse
 import json
 
-# --- 1. עיצוב RTL וסגנון כפתורי דירוג ---
-st.set_page_config(page_title="ניהול כדורגל", layout="wide")
+# --- 1. עיצוב מותאם לסלולר (Mobile First) ---
+st.set_page_config(page_title="ניהול כדורגל", layout="centered") # תצוגה צרה
+
 st.markdown("""
     <style>
+    /* כיוון טקסט וישור לימין */
     .stApp, [data-testid="stSidebar"], .main { direction: rtl; text-align: right; }
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] { direction: rtl !important; text-align: right !important; }
-    h1, h2, h3, h4, p, label, span { text-align: right !important; direction: rtl !important; }
     
-    /* עיצוב כפתורי הדירוג (Radio) */
-    div[data-testid="stWidgetLabel"] p { font-weight: bold; font-size: 1.1em; color: #1e88e5; }
-    div[data-role="radiogroup"] { gap: 10px; justify-content: flex-end; }
+    /* הקטנת כותרות באופן גורף */
+    h1 { font-size: 1.5rem !important; margin-bottom: 0.5rem !important; }
+    h2 { font-size: 1.3rem !important; }
+    h3 { font-size: 1.1rem !important; margin-top: 0.5rem !important; }
+    p, label, span { font-size: 0.9rem !important; }
     
-    .stButton button { width: 100%; border-radius: 8px; background-color: #2e7d32; color: white; font-weight: bold; }
+    /* התאמת כפתורי הרדיו (דירוג) לסלולר - צמצום רווחים */
+    div[data-role="radiogroup"] { gap: 5px !important; }
+    div[data-testid="stMarkdownContainer"] p { margin-bottom: 2px !important; }
+    
+    /* עיצוב כפתורים */
+    .stButton button { 
+        width: 100%; 
+        border-radius: 6px; 
+        background-color: #2e7d32; 
+        color: white; 
+        height: 2.5rem; 
+        font-size: 1rem !important; 
+    }
+    
+    /* צמצום מרווחים למעלה ובצדדים */
+    .block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -65,22 +82,21 @@ with st.sidebar:
 
 # --- 5. דף שחקן ---
 if menu == "שחקן":
-    st.title("📝 עדכון פרטים ודירוג")
+    st.title("📝 עדכון ודירוג")
     names = sorted([str(p['name']) for p in st.session_state.players]) if st.session_state.players else []
-    sel = st.selectbox("מי אתה?", ["---", "🆕 שחקן חדש"] + names)
+    sel = st.selectbox("מי אתה?", ["---", "🆕 חדש"] + names)
     
     final_name = ""
     curr = None
-    if sel == "🆕 שחקן חדש": 
-        final_name = st.text_input("הקלד שם מלא:")
+    if sel == "🆕 חדש": 
+        final_name = st.text_input("שם מלא:")
     elif sel != "---":
         final_name = sel
         curr = next((p for p in st.session_state.players if p['name'] == final_name), None)
 
     if final_name:
-        st.subheader(f"פרופיל: {final_name}")
-        
-        year = st.number_input("שנת לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
+        st.subheader(f"שחקן: {final_name}")
+        year = st.number_input("לידה:", 1950, 2026, int(curr['birth_year']) if curr and 'birth_year' in curr else 1995)
         
         roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
         if curr and 'pos' in curr and pd.notna(curr['pos']) and isinstance(curr['pos'], str):
@@ -88,19 +104,17 @@ if menu == "שחקן":
         else: def_roles = []
         selected_pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_roles)
         
-        st.write("") # מרווח קטן
-        # --- השינוי כאן: דירוג אישי באמצעות כפתורי רדיו ---
+        st.write("---")
         rate = st.radio(
-            "דרג את היכולת שלך (כמה אתה חזק):",
+            "דירוג אישי:",
             options=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             index=int(curr['rating'] - 1) if curr and 'rating' in curr else 4,
             horizontal=True,
-            key="self_rating_radio"
+            key="self_rating"
         )
         
         st.divider()
         st.subheader("⭐ דרג חברים")
-        st.info("דרג את רמת המשחק של החברים (1 = חלש, 10 = חזק מאוד)")
         
         p_ratings = {}
         try: p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr and pd.notna(curr['peer_ratings']) else {}
@@ -116,9 +130,9 @@ if menu == "שחקן":
                     key=f"r_{p['name']}"
                 )
 
-        if st.button("שמור הכל ועדכן מאגר ✅"):
+        if st.button("שמור הכל ✅"):
             if not selected_pos:
-                st.error("בחר לפחות תפקיד אחד")
+                st.error("בחר תפקיד")
             else:
                 new_p = {
                     "name": final_name, "birth_year": year, 
@@ -130,65 +144,51 @@ if menu == "שחקן":
                 else: st.session_state.players.append(new_p)
                 
                 save_data(st.session_state.players)
-                st.success("הנתונים נשמרו בגיליון!")
-                st.balloons()
+                st.success("נשמר!")
                 st.rerun()
-                
+
 # --- 6. ניהול מאגר (Admin) ---
 elif menu == "ניהול מאגר":
-    st.title("👤 ניהול מאגר וציונים")
-    
+    st.title("👤 ניהול")
     for i, p in enumerate(st.session_state.players):
         f, avg, count = get_final_score(p['name'])
         age = 2026 - int(p.get('birth_year', 1995))
         
         with st.container(border=True):
-            # תצוגת השחקן בשתי שורות כמו שביקשת
-            c = st.columns([3, 1, 1, 1, 1])
-            with c[0]:
-                st.subheader(p['name'])
-                st.write(f"🎂 גיל: {age} | 🏃 תפקיד: {p.get('pos', '---')}")
+            st.markdown(f"**{p['name']}**")
+            st.markdown(f"<small>🎂 {age} | 🏃 {p.get('pos', '---')}</small>", unsafe_allow_html=True)
             
-            c[1].metric("אישי", f"{float(p.get('rating', 5)):.1f}")
-            c[2].metric("חברים", f"{avg:.1f}", f"({count})")
-            c[3].metric("סופי", f"{f:.1f}")
+            c = st.columns(3)
+            c[0].metric("אישי", f"{float(p.get('rating', 5)):.1f}")
+            c[1].metric("חברים", f"{avg:.1f}")
+            c[2].metric("סופי", f"{f:.1f}")
             
-            # כפתורי פעולה
-            edit_mode = st.checkbox("📝 עריכה", key=f"check_edit_{i}")
-            if c[4].button("🗑️ מחיקה", key=f"del_{i}"):
+            c1, c2 = st.columns(2)
+            edit_mode = c1.checkbox("📝 עריכה", key=f"ch_{i}")
+            if c2.button("🗑️ מחק", key=f"del_{i}"):
                 st.session_state.players.pop(i)
                 save_data(st.session_state.players)
                 st.rerun()
 
-            # אם סימנו "עריכה", יפתח טופס קטן מתחת לשחקן
             if edit_mode:
-                with st.expander("ערוך פרטים עבור " + p['name'], expanded=True):
-                    new_name = st.text_input("שם:", value=p['name'], key=f"en_{i}")
-                    new_year = st.number_input("שנת לידה:", 1950, 2026, int(p['birth_year']), key=f"ey_{i}")
-                    new_pos = st.text_input("תפקיד:", value=p['pos'], key=f"ep_{i}")
-                    new_rate = st.slider("דירוג אישי:", 1.0, 10.0, float(p['rating']), key=f"er_{i}")
-                    
-                    if st.button("שמור שינויים 💾", key=f"save_edit_{i}"):
-                        st.session_state.players[i] = {
-                            "name": new_name,
-                            "birth_year": new_year,
-                            "pos": new_pos,
-                            "rating": new_rate,
-                            "peer_ratings": p.get('peer_ratings', '{}') # שומר על הדירוגים הקיימים
-                        }
-                        save_data(st.session_state.players)
-                        st.success("השינויים נשמרו!")
-                        st.rerun()
+                new_name = st.text_input("שם:", value=p['name'], key=f"en_{i}")
+                new_year = st.number_input("לידה:", 1950, 2026, int(p['birth_year']), key=f"ey_{i}")
+                new_pos = st.text_input("תפקיד:", value=p['pos'], key=f"ep_{i}")
+                new_rate = st.slider("אישי:", 1, 10, int(p['rating']), key=f"er_{i}")
+                if st.button("שמור שינויים", key=f"save_{i}"):
+                    st.session_state.players[i] = {"name": new_name, "birth_year": new_year, "pos": new_pos, "rating": new_rate, "peer_ratings": p.get('peer_ratings', '{}')}
+                    save_data(st.session_state.players)
+                    st.rerun()
 
 # --- 7. חלוקת קבוצות ---
 elif menu == "חלוקת קבוצות":
-    st.title("📋 חלוקה למשחק")
+    st.title("📋 חלוקה")
     pool = []
     for p in st.session_state.players:
         f, _, _ = get_final_score(p['name'])
         pool.append({**p, "f": f})
         
-    selected_players = st.multiselect("מי משחק היום?", [p['name'] for p in pool])
+    selected_players = st.multiselect("מי משחק?", [p['name'] for p in pool])
     
     if st.button("חלק קבוצות 🚀"):
         active = [p for p in pool if p['name'] in selected_players]
@@ -200,16 +200,11 @@ elif menu == "חלוקת קבוצות":
                 else: t2.append(p)
             
             st.divider()
-            c1, c2 = st.columns(2)
-            c1.subheader("⚪ לבן")
-            c1.write("\n".join([f"- {p['name']} ({p['pos']})" for p in t1]))
-            c2.subheader("⚫ שחור")
-            c2.write("\n".join([f"- {p['name']} ({p['pos']})" for p in t2]))
+            st.subheader("⚪ לבן")
+            st.write(", ".join([p['name'] for p in t1]))
+            st.subheader("⚫ שחור")
+            st.write(", ".join([p['name'] for p in t2]))
             
             msg = "⚽ *הקבוצות:* \n\n⚪ לבן: \n" + "\n".join([f"- {p['name']}" for p in t1])
             msg += "\n\n⚫ שחור: \n" + "\n".join([f"- {p['name']}" for p in t2])
             st.markdown(f'[📲 וואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
-
-
-
-
