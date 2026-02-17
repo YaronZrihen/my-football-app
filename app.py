@@ -13,14 +13,20 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, h4, p, label, span { color: #e2e8f0 !important; text-align: right !important; }
     
-    /* הכרחת שתי עמודות צמודות בסלולר */
+    /* פתרון הקסם לשתי עמודות בסלולר */
     [data-testid="column"] {
         width: 50% !important;
         flex: 1 1 50% !important;
         min-width: 50% !important;
     }
+    
+    /* ביטול הריווח ש-Streamlit מוסיף בין עמודות שבורות */
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+    }
 
-    /* כרטיס שחקן במאגר (מנהל) */
     .admin-player-row {
         background-color: #2d3748;
         border: 1px solid #4a5568;
@@ -31,29 +37,26 @@ st.markdown("""
         width: 100%;
     }
 
-    /* כרטיס שחקן בחלוקה (קומפקטי לסלולר) */
     .player-card-mobile {
         background-color: #2d3748;
         border: 1px solid #4a5568;
-        padding: 6px;
+        padding: 4px;
         border-radius: 6px;
         margin-bottom: 4px;
-        font-size: 14px;
+        font-size: 13px;
         text-align: center;
+        line-height: 1.2;
     }
 
-    /* כפתורי פעולה קטנים */
     .stButton > button { border-radius: 6px !important; background-color: #4a5568 !important; color: white !important; border: none !important; }
     .stButton > button[key^="edit_"], .stButton > button[key^="del_"], .stButton > button[key^="m_"] {
-        width: 100% !important; height: 32px !important; padding: 0px !important; font-size: 14px !important;
+        width: 100% !important; height: 30px !important; padding: 0px !important; font-size: 12px !important;
     }
 
-    /* טבלת מאזנים */
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #2d3748; border-radius: 8px; overflow: hidden; font-size: 14px; }
-    .stats-table th, .stats-table td { padding: 10px; text-align: center; border: 1px solid #4a5568; }
+    .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #2d3748; border-radius: 8px; overflow: hidden; font-size: 13px; }
+    .stats-table th, .stats-table td { padding: 8px; text-align: center; border: 1px solid #4a5568; }
     .stats-table th { background-color: #3d495d; color: #22c55e; }
 
-    /* תפריט רדיו מעוצב כטאבים */
     div[data-testid="stRadio"] > div { flex-direction: row !important; justify-content: center; gap: 8px; }
     div[data-testid="stRadio"] label { background-color: #2d3748; padding: 8px 16px; border-radius: 10px; border: 1px solid #4a5568; cursor: pointer; }
     div[data-testid="stRadio"] label[data-checked="true"] { background-color: #4a5568; border-color: #22c55e; }
@@ -68,7 +71,6 @@ if 'players' not in st.session_state:
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
     except: st.session_state.players = []
 
-# ניהול ניווט ועריכה
 if 'menu_index' not in st.session_state: st.session_state.menu_index = 0
 if 'edit_player' not in st.session_state: st.session_state.edit_player = "---"
 if 'widget_key' not in st.session_state: st.session_state.widget_key = 0
@@ -92,7 +94,7 @@ def get_stats(name):
     avg_p = sum(peer_scores)/len(peer_scores) if peer_scores else 0.0
     return (s_rate + avg_p) / 2 if avg_p > 0 else s_rate, avg_p, int(p.get('birth_year', 1995))
 
-# --- 3. תפריט ניווט ---
+# --- 3. תפריט ---
 choice = st.radio("ניווט", ["👤 שחקן", "⚙️ מנהל"], index=st.session_state.menu_index, label_visibility="collapsed")
 st.session_state.menu_index = 0 if choice == "👤 שחקן" else 1
 
@@ -103,7 +105,6 @@ if st.session_state.menu_index == 0:
     options = ["---", "🆕 חדש"] + names
     try: default_idx = options.index(st.session_state.edit_player)
     except: default_idx = 0
-
     sel = st.selectbox("מי אתה?", options, index=default_idx, key=f"sel_{st.session_state.widget_key}")
     
     if sel != "---":
@@ -115,16 +116,15 @@ if st.session_state.menu_index == 0:
                 roles = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
                 def_r = curr['pos'].split(", ") if curr and isinstance(curr['pos'], str) else []
                 pos = st.pills("תפקידים:", roles, selection_mode="multi", default=def_r)
-                rate = st.radio("דירוג (1-10):", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True)
+                rate = st.radio("דירוג:", [1,2,3,4,5,6,7,8,9,10], index=int(curr['rating']-1) if curr else 4, horizontal=True)
             
-            st.subheader("⭐ דרג חברים")
             p_ratings = json.loads(curr['peer_ratings']) if curr and 'peer_ratings' in curr else {}
             for p in st.session_state.players:
                 if p['name'] != f_name:
                     st.write(f"**{p['name']}**")
                     p_ratings[p['name']] = st.radio(f"r_{p['name']}", [1,2,3,4,5,6,7,8,9,10], index=int(p_ratings.get(p['name'], 5))-1, horizontal=True, key=f"rt_{p['name']}_{sel}")
 
-            if st.button("שמור ועדכן ✅"):
+            if st.button("שמור ✅"):
                 new_d = {"name": f_name, "birth_year": y, "pos": ", ".join(pos), "rating": rate, "peer_ratings": json.dumps(p_ratings, ensure_ascii=False)}
                 idx = next((i for i, x in enumerate(st.session_state.players) if x['name'] == f_name), None)
                 if idx is not None: st.session_state.players[idx] = new_d
@@ -144,10 +144,9 @@ else:
             for i, p in enumerate(st.session_state.players):
                 f_s, avg_p, b_y = get_stats(p['name'])
                 age = (2026 - b_y) if isinstance(b_y, (int, float)) else "??"
-                s_pos = str(p.get('pos', '-'))
                 with st.container():
                     c1, c2, c3 = st.columns([3, 0.6, 0.6])
-                    with c1: st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {age} | {s_pos[:15]}<br><small>⭐ {f_s:.1f}</small></div>", unsafe_allow_html=True)
+                    with c1: st.markdown(f"<div class='admin-player-row'><b>{p['name']}</b> | {age} | {str(p.get('pos','-'))[:12]}<br><small>⭐ {f_s:.1f}</small></div>", unsafe_allow_html=True)
                     with c2:
                         if st.button("✏️", key=f"edit_{i}"):
                             st.session_state.edit_player = p['name']
@@ -170,11 +169,11 @@ else:
                 st.session_state.t1, st.session_state.t2 = active[0::2], active[1::2]
             
             if selected and 't1' in st.session_state:
-                # --- תצוגת קבוצות בשתי עמודות צמודות ---
+                # עמודות
                 col1, col2 = st.columns(2)
                 for col, team, label, key_pfx in zip([col1, col2], [st.session_state.t1, st.session_state.t2], ["⚪ לבן", "⚫ שחור"], ["w", "b"]):
                     with col:
-                        st.markdown(f"<h4 style='text-align:center;'>{label}</h4>", unsafe_allow_html=True)
+                        st.markdown(f"<h5 style='text-align:center;'>{label}</h5>", unsafe_allow_html=True)
                         for i, p in enumerate(team):
                             st.markdown(f"<div class='player-card-mobile'><b>{p['name']}</b><br>⭐{p['f']:.1f}</div>", unsafe_allow_html=True)
                             if st.button("🔄", key=f"m_{key_pfx}_{i}"):
@@ -182,20 +181,18 @@ else:
                                 else: st.session_state.t1.append(st.session_state.t2.pop(i))
                                 st.rerun()
                 
-                # --- טבלת מאזנים ---
+                # טבלת מאזנים
                 p1, p2 = sum([x['f'] for x in st.session_state.t1]), sum([x['f'] for x in st.session_state.t2])
                 a1 = sum([x['age'] for x in st.session_state.t1])/len(st.session_state.t1) if st.session_state.t1 else 0
                 a2 = sum([x['age'] for x in st.session_state.t2])/len(st.session_state.t2) if st.session_state.t2 else 0
-                
                 st.markdown(f"""
                 <table class="stats-table">
                     <tr><th>מדד</th><th>⚪ לבן</th><th>⚫ שחור</th></tr>
                     <tr><td>💪 כוח</td><td>{p1:.1f}</td><td>{p2:.1f}</td></tr>
                     <tr><td>🎂 גיל</td><td>{a1:.1f}</td><td>{a2:.1f}</td></tr>
-                    <tr><td>🏃 כמות</td><td>{len(st.session_state.t1)}</td><td>{len(st.session_state.t2)}</td></tr>
                 </table>
                 """, unsafe_allow_html=True)
 
-                msg = f"⚽ הקבוצות להיום:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
+                msg = f"⚽ הקבוצות:\n\n⚪ לבן:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t1])
                 msg += f"\n\n⚫ שחור:\n" + "\n".join([f"• {p['name']}" for p in st.session_state.t2])
                 st.markdown(f'[📲 שלח לוואטסאפ](https://wa.me/?text={urllib.parse.quote(msg)})')
