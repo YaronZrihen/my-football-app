@@ -18,7 +18,6 @@ st.markdown("""
         display: flex; flex-direction: column; align-items: flex-start;
     }
     
-    /* עיצוב Pills (גם בחלוקה וגם בטופס) */
     div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
     div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
 
@@ -34,12 +33,15 @@ st.markdown("""
 
     [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
 
-    /* עיצוב הקישור להחלפה - מבטל את המסגרת של הכפתור כדי שלא יתפוס מקום */
-    div[data-testid="column"] button[kind="tertiary"] {
-        padding: 0 !important;
+    /* הפיכת הכפתור לקישור טקסט דרך CSS - עוקף את בעיית הגרסה */
+    .swap-btn button {
+        background-color: transparent !important;
         color: #60a5fa !important;
+        border: none !important;
+        padding: 0 !important;
         text-decoration: underline !important;
-        font-size: 12px !important;
+        font-size: 13px !important;
+        box-shadow: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -112,16 +114,17 @@ with tab1:
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    # יחס עמודות חדש שנותן יותר מקום לשם
                     c_txt, c_swp = st.columns([0.7, 0.3])
                     with c_txt:
                         st.markdown(f"<div class='p-box'><span>{p['name']}</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
-                        # החלפת הכפתור בקישור טקסט (kind="tertiary")
-                        if st.button("החלף", key=f"sw_{data['pfx']}_{i}", kind="tertiary"):
+                        # עטיפה ב-div עם class כדי להחיל את העיצוב
+                        st.markdown('<div class="swap-btn">', unsafe_allow_html=True)
+                        if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                             else: st.session_state.t1.append(st.session_state.t2.pop(i))
                             st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
