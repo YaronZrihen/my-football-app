@@ -3,64 +3,10 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS (נועל את התצוגה הדו-טורית) ---
-st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
+# הגדרות בסיס
+st.set_page_config(page_title="כדורגל וולפסון", layout="centered")
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; }
-    .block-container { padding: 10px !important; max-width: 500px !important; }
-    
-    /* מכולת הקבוצות - Flexbox קשיח */
-    .teams-wrapper {
-        display: flex !important;
-        flex-direction: row !important;
-        gap: 8px !important;
-        width: 100% !important;
-        margin-top: 15px;
-    }
-    
-    .team-col {
-        flex: 1 !important;
-        min-width: 0 !important;
-        background: #2d3748;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid #4a5568;
-    }
-
-    .team-h {
-        background: #3b82f6;
-        color: white;
-        text-align: center;
-        padding: 8px;
-        font-weight: bold;
-        font-size: 16px;
-    }
-
-    .p-card {
-        background: #1e293b;
-        margin: 4px;
-        padding: 8px;
-        border-radius: 4px;
-        border-right: 4px solid #60a5fa;
-    }
-
-    .p-name { font-size: 16px !important; font-weight: bold; display: block; color: #f8fafc; }
-    .p-stats { font-size: 12px !important; color: #22c55e; }
-
-    .t-footer {
-        background: #0f172a;
-        padding: 8px;
-        text-align: center;
-        font-size: 13px;
-        color: #60a5fa;
-        border-top: 1px solid #4a5568;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. לוגיקה ---
+# לוגיקה של נתונים
 conn = st.connection("gsheets", type=GSheetsConnection)
 if 'players' not in st.session_state:
     try:
@@ -68,26 +14,24 @@ if 'players' not in st.session_state:
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
     except: st.session_state.players = []
 
-def get_stats(name):
+def get_p_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 30
-    r = float(p.get('rating', 5.0))
-    return r, 2026 - int(p.get('birth_year', 1996))
+    return float(p.get('rating', 5.0)), 2026 - int(p.get('birth_year', 1996))
 
-# --- 3. ממשק חלוקה ---
-st.title("⚽ וולפסון חולון")
+st.markdown("<h2 style='text-align:center;'>⚽ שישי וולפסון חולון</h2>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["🏃 חלוקה", "📝 ניהול"])
+tab1, tab2 = st.tabs(["🏃 חלוקה", "⚙️ ניהול"])
 
 with tab1:
     all_n = sorted([p['name'] for p in st.session_state.players])
-    selected = st.pills("מי משחק?", all_n, selection_mode="multi")
+    selected = st.pills("מי הגיע?", all_n, selection_mode="multi")
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected:
             pool = []
             for n in selected:
-                s, a = get_stats(n)
+                s, a = get_p_stats(n)
                 pool.append({'name': n, 'f': s, 'age': a})
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
@@ -97,48 +41,49 @@ with tab1:
             st.session_state.t1, st.session_state.t2 = t1, t2
 
     if 't1' in st.session_state and selected:
-        # בניה דינמית של ה-HTML
-        def gen_col_html(team_list, title):
-            cards = ""
-            for p in team_list:
-                cards += f"""
-                <div class="p-card">
-                    <span class="p-name">{p['name']}</span>
-                    <span class="p-stats">רמה: {p['f']:.1f} | גיל: {p['age']}</span>
-                </div>
-                """
-            avg_f = sum(p['f'] for p in team_list)/len(team_list) if team_list else 0
-            return f"""
-            <div class="team-col">
-                <div class="team-h">{title}</div>
-                {cards}
-                <div class="t-footer">ממוצע: {avg_f:.1f}</div>
-            </div>
-            """
+        # בחינת נתונים עבור ה-HTML
+        t1, t2 = st.session_state.t1, st.session_state.t2
+        avg1 = sum(p['f'] for p in t1)/len(t1) if t1 else 0
+        avg2 = sum(p['f'] for p in t2)/len(t2) if t2 else 0
 
-        full_html = f"""
-        <div class="teams-wrapper">
-            {gen_col_html(st.session_state.t1, "⚪ לבן")}
-            {gen_col_html(st.session_state.t2, "⚫ שחור")}
+        # יצירת ה-HTML בתוך רכיב עצמאי (Iframe) למניעת קריסה בסלולר
+        def list_p(team):
+            return "".join([f"<div style='background:#1e293b; margin:4px; padding:8px; border-radius:4px; border-right:4px solid #3b82f6;'><div style='font-size:16px; font-weight:bold; color:white;'>{p['name']}</div><div style='font-size:12px; color:#22c55e;'>רמה: {p['f']:.1f} | גיל: {p['age']}</div></div>" for p in team])
+
+        html_content = f"""
+        <div dir="rtl" style="display:flex; flex-direction:row; gap:10px; font-family:sans-serif;">
+            <div style="flex:1; background:#2d3748; border-radius:8px; overflow:hidden; border:1px solid #4a5568;">
+                <div style="background:#3b82f6; color:white; text-align:center; padding:10px; font-weight:bold;">⚪ לבן</div>
+                {list_p(t1)}
+                <div style="background:#0f172a; color:#60a5fa; text-align:center; padding:10px; font-size:14px; border-top:1px solid #4a5568;">רמה: {avg1:.1f}</div>
+            </div>
+            <div style="flex:1; background:#2d3748; border-radius:8px; overflow:hidden; border:1px solid #4a5568;">
+                <div style="background:#4a5568; color:white; text-align:center; padding:10px; font-weight:bold;">⚫ שחור</div>
+                {list_p(t2)}
+                <div style="background:#0f172a; color:#60a5fa; text-align:center; padding:10px; font-size:14px; border-top:1px solid #4a5568;">רמה: {avg2:.1f}</div>
+            </div>
         </div>
         """
-        st.markdown(full_html, unsafe_allow_html=True)
+        st.components.v1.html(html_content, height=500, scrolling=True)
 
-        # כפתורי החלפה נוחים מתחת
-        st.write("---")
-        st.subheader("🔄 החלפת שחקנים")
+        # כפתורי החלפה - הפתרון הכי יציב לסלולר
+        st.markdown("---")
+        st.subheader("🔄 החלפת שחקן")
         c1, c2 = st.columns(2)
         with c1:
-            m1 = st.selectbox("מהלבן:", ["--"] + [p['name'] for p in st.session_state.t1])
+            m1 = st.selectbox("העבר מהלבן:", ["--"] + [p['name'] for p in t1])
             if m1 != "--":
-                p_obj = next(p for p in st.session_state.t1 if p['name'] == m1)
+                p_obj = next(p for p in t1 if p['name'] == m1)
                 st.session_state.t1.remove(p_obj)
                 st.session_state.t2.append(p_obj)
                 st.rerun()
         with c2:
-            m2 = st.selectbox("מהשחור:", ["--"] + [p['name'] for p in st.session_state.t2])
+            m2 = st.selectbox("העבר מהשחור:", ["--"] + [p['name'] for p in t2])
             if m2 != "--":
-                p_obj = next(p for p in st.session_state.t2 if p['name'] == m2)
+                p_obj = next(p for p in t2 if p['name'] == m2)
                 st.session_state.t2.remove(p_obj)
                 st.session_state.t1.append(p_obj)
                 st.rerun()
+
+with tab2:
+    st.write("ניהול מאגר שחקנים (בפיתוח)")
