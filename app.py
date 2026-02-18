@@ -3,12 +3,11 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS (כולל תיקון קריטי לסלולר ויישור לימין) ---
+# --- 1. עיצוב CSS (תיקון אגרסיבי לסלולר) ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
-    /* הגדרות כלליות */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
@@ -16,39 +15,56 @@ st.markdown("""
     .main-title { font-size: 24px !important; text-align: center !important; font-weight: bold; margin-bottom: 5px; color: #60a5fa; }
     .sub-title { font-size: 16px !important; text-align: center !important; margin-bottom: 20px; color: #cbd5e0; }
     
-    .database-card { 
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
-        display: flex; flex-direction: column; align-items: flex-start;
-    }
-    
-    /* עיצוב Pills */
-    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
-    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
-
-    /* שורת שחקן */
-    .p-box {
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 6px;
-        margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
-    }
-    
-    /* תיקון 2 עמודות בסלולר - כפייה של פריסה אופקית */
+    /* כפיית 2 עמודות בסלולר */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 8px !important;
-        width: 100% !important;
+        align-items: flex-start !important;
+        gap: 5px !important;
     }
     [data-testid="column"] {
+        flex: 1 !important;
         width: 50% !important;
-        flex: 1 1 50% !important;
-        min-width: 0 !important; /* מונע מהעמודה להתרחב מעבר לחצי מסך */
+        min-width: 0 !important;
+    }
+
+    /* עיצוב שורת שחקן קומפקטית */
+    .p-box {
+        background: #2d3748; 
+        border: 1px solid #4a5568; 
+        border-radius: 4px; 
+        padding: 2px 4px;
+        margin-bottom: 2px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        min-height: 30px;
+        font-size: 12px; /* פונט קטן יותר לסלולר */
+    }
+    
+    .team-label {
+        text-align: center !important;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    /* הקטנת כפתור ההחלפה */
+    .stButton button {
+        padding: 0px 2px !important;
+        font-size: 10px !important;
+        height: 24px !important;
     }
 
     .team-stats {
-        background: #1e293b; border-top: 2px solid #4a5568; padding: 6px;
-        margin-top: 5px; font-size: 11px; text-align: center; border-radius: 0 0 8px 8px;
+        background: #1e293b; border-top: 1px solid #4a5568; padding: 4px;
+        margin-top: 5px; font-size: 10px; text-align: center; border-radius: 0 0 8px 8px;
     }
+    
+    /* עיצוב Pills */
+    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; font-size: 12px !important; }
+    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -100,7 +116,8 @@ with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("בחר שחקנים שהגיעו:", all_names, selection_mode="multi", key="p_selection")
 
-    st.markdown(f"**נבחרו: {len(selected_names) if selected_names else 0} שחקנים**")
+    if selected_names:
+        st.markdown(f"<p style='text-align:right;'><b>נבחרו: {len(selected_names)}</b></p>", unsafe_allow_html=True)
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
@@ -116,16 +133,20 @@ with tab1:
             st.session_state.t1, st.session_state.t2 = t1, t2
 
     if 't1' in st.session_state and selected_names:
+        st.write("---")
+        # העמודות כאן ינעלו בזכות ה-CSS למעלה
         col_w, col_b = st.columns(2)
+        
         teams_data = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
         
         for col, data in zip([col_w, col_b], teams_data):
             with col:
-                st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
+                st.markdown(f"<div class='team-label'>{data['label']}</div>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    c_txt, c_swp = st.columns([3, 1])
+                    # יחס עמודות פנימי צפוף יותר
+                    c_txt, c_swp = st.columns([3, 1.2])
                     with c_txt:
-                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:10px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='p-box'><span>{p['name']}</span><span style='color:#22c55e; font-size:9px;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
                         if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -136,11 +157,7 @@ with tab1:
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
                     st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
-    # הוספת שורות ריקות בתחתית
-    st.write("")
-    st.write("")
-    st.write("")
-    st.write("")
+    for _ in range(5): st.write("")
 
 # --- 5. טאב מאגר ---
 with tab2:
