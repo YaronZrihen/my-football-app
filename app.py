@@ -13,7 +13,7 @@ st.markdown("""
     .block-container { padding: 5px !important; max-width: 100vw !important; overflow-x: hidden !important; }
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
     
-    /* שורת שחקן חכמה - לא מאפשרת גלישה */
+    /* עיצוב שורת שחקן צפופה למניעת WIDE */
     .player-row {
         display: flex;
         justify-content: space-between;
@@ -22,34 +22,39 @@ st.markdown("""
         border: 1px solid #4a5568;
         border-radius: 4px;
         padding: 4px 8px;
-        margin-bottom: 4px;
-        gap: 5px;
-    }
-    .player-info { display: flex; justify-content: space-between; flex-grow: 1; align-items: center; }
-    
-    /* כפתור החלף שקוף וקטן */
-    .stButton > button[key^="sw_"] {
-        background: transparent !important;
-        border: none !important;
-        color: #60a5fa !important;
-        text-decoration: underline !important;
-        padding: 0 !important;
-        font-size: 12px !important;
-        min-width: 40px !important;
-        height: auto !important;
+        margin-bottom: 2px;
     }
 
+    /* עיצוב כפתור החלף כקישור */
+    div.stButton > button[key^="sw_"] {
+        background-color: transparent !important;
+        color: #60a5fa !important;
+        border: none !important;
+        padding: 0 !important;
+        text-decoration: underline !important;
+        font-size: 12px !important;
+        height: auto !important;
+        min-height: 20px !important;
+    }
+    
     .team-stats {
         background: #1e293b; border-top: 2px solid #4a5568; padding: 8px;
         margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
     }
 
-    /* הגבלה של עמודות הקבוצות בלבד */
-    [data-testid="column"] { min-width: 0 !important; }
+    /* הגנה על מבנה העמודות הראשי */
+    [data-testid="stHorizontalBlock"] { gap: 5px !important; }
+    [data-testid="column"] { min-width: 0 !important; flex: 1 !important; }
+
+    .database-card { 
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
+    }
+    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
+    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. פונקציות עזר (המקוריות שלך) ---
+# --- 2. פונקציות עזר ---
 def safe_split(val):
     if not val or pd.isna(val): return []
     return str(val).split(',')
@@ -93,7 +98,7 @@ tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", 
 # --- 4. טאב חלוקה ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
-    selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
+    selected_names = st.pills("בחר שחקנים שהגיעו:", all_names, selection_mode="multi", key="p_selection")
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
@@ -115,26 +120,22 @@ with tab1:
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    # יצירת השורה במבנה אחד כדי למנוע Wide
-                    row_html = f"""
-                    <div class="player-row">
-                        <div class="player-info">
+                    # בניית השורה ב-HTML כדי למנוע יצירת עמודות Streamlit פנימיות
+                    st.markdown(f"""
+                        <div class="player-row">
                             <span>{p['name']}</span>
-                            <span style="color:#22c55e; font-weight:bold; font-size:11px; margin-right:5px;">{p['f']:.1f}</span>
+                            <span style="color:#22c55e; font-weight:bold; font-size:11px;">{p['f']:.1f}</span>
                         </div>
-                    </div>
-                    """
-                    st.markdown(row_html, unsafe_allow_html=True)
-                    # הכפתור מתחת לשורה או בתוכה (כאן הוא צמוד למטה ב-CSS)
+                    """, unsafe_allow_html=True)
                     if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                         if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                         else: st.session_state.t1.append(st.session_state.t2.pop(i))
                         st.rerun()
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    st.markdown(f<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
 
-# --- שאר הקוד (מאגר ועדכון) נשאר בדיוק כפי שהיה אצלך ---
+# --- 5. טאב מאגר ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
@@ -149,17 +150,20 @@ with tab2:
                 st.session_state.players.pop(i); save_to_gsheets(); st.rerun()
         st.markdown("---")
 
+# --- 6. טאב עדכון/הרשמה ---
 with tab3:
     st.subheader("עדכון פרטים")
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
+    
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
         f_rate = st.radio("ציון:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
+        
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
                 new_entry = {"name": f_name, "birth_year": f_year, "rating": f_rate, "roles": ",".join(f_roles)}
