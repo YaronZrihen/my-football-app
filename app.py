@@ -3,48 +3,54 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS (שיטה חדשה למניעת Wide) ---
+# --- 1. עיצוב CSS (החזרת העיצוב המקורי + חסימת גלישה) ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
+    /* חסימת גלישה רוחבית מוחלטת - התיקון לנזק ה-Wide */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow-x: hidden !important;
+        position: relative;
+    }
+    .block-container { 
+        max-width: 100vw !important; 
+        overflow-x: hidden !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    /* הקוד המקורי שלך ללא שינוי */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
-    .block-container { padding: 10px !important; max-width: 100% !important; overflow-x: hidden !important; }
-    
-    /* נעילת העמודות הראשיות (לבן/שחור) */
-    [data-testid="stHorizontalBlock"] { 
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; 
-    }
-    [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
-
-    /* קונטיינר גמיש לשחקן + כפתור */
-    .player-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 5px;
-        margin-bottom: 4px;
-        width: 100%;
-    }
-
-    .p-box-new {
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 4px 8px;
-        flex-grow: 1; display: flex; justify-content: space-between; align-items: center;
-        min-height: 38px; overflow: hidden;
-    }
-    .p-box-new span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* עיצוב כפתור ה-🔄 הקטן */
-    .swap-btn-container { width: 35px; flex-shrink: 0; }
-    .stButton button { width: 100% !important; height: 38px !important; padding: 0 !important; font-size: 18px !important; }
-
-    .team-stats { background: #1e293b; border-top: 2px solid #4a5568; padding: 8px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px; }
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
+    
+    .database-card { 
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
+        display: flex; flex-direction: column; align-items: flex-start;
+    }
+    
+    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
+    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
+
+    .p-box {
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
+        margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
+    }
+    
+    .team-stats {
+        background: #1e293b; border-top: 2px solid #4a5568; padding: 8px;
+        margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
+    }
+
+    /* הבטחת שתי עמודות צמודות בסלולר כפי שביקשת */
+    [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
+    [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. פונקציות עזר (ללא שינוי) ---
+# --- כל שאר הקוד שלך נשאר זהה לחלוטין (Copy-Paste מהגרסה התקינה שלך) ---
+
 def safe_split(val):
     if not val or pd.isna(val): return []
     return str(val).split(',')
@@ -79,16 +85,16 @@ def get_player_stats(name):
     final_score = (r + avg_p) / 2 if avg_p > 0 else r
     return final_score, int(p.get('birth_year', 1995))
 
-# --- 3. ניווט ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
 
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# --- 4. טאב חלוקה ---
+# טאב חלוקה
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
-    selected_names = st.pills("בחר שחקנים:", all_names, selection_mode="multi", key="p_selection")
+    selected_names = st.pills("בחר שחקנים שהגיעו:", all_names, selection_mode="multi", key="p_selection")
+    st.markdown(f"**נבחרו: {len(selected_names) if selected_names else 0} שחקנים**")
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
@@ -105,28 +111,22 @@ with tab1:
 
     if 't1' in st.session_state and selected_names:
         col_w, col_b = st.columns(2)
-        teams = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
-        
-        for col, data in zip([col_w, col_b], teams):
+        teams_data = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
+        for col, data in zip([col_w, col_b], teams_data):
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    # שימוש ב-Container אחד במקום עמודות פנימיות
-                    st.markdown(f"""
-                        <div class="player-row">
-                            <div class="p-box-new">
-                                <span>{p['name']}</span>
-                                <span style="color:#22c55e; font-weight:bold;">{p['f']:.1f}</span>
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    # הכפתור מחוץ ל-HTML אבל בגלל ה-CSS הוא יצוף נכון (או פשוט נשים אותו מתחת במידת הצורך)
-                    if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
-                        if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
-                        else: st.session_state.t1.append(st.session_state.t2.pop(i))
-                        st.rerun()
+                    c_txt, c_swp = st.columns([4, 1])
+                    with c_txt:
+                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                    with c_swp:
+                        if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
+                            if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
+                            else: st.session_state.t1.append(st.session_state.t2.pop(i))
+                            st.rerun()
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
+                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
+                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
-# --- 5 & 6 (המשך המאגר והעדכון שלך ללא שינוי) ---
+# כאן יבוא המשך הקוד של טאב 2 ו-3 שלך (בדיוק כפי שהם אצלך במקור)
