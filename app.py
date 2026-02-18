@@ -8,22 +8,16 @@ st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
+    /* הגדרות בסיסיות */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
-    .block-container { padding: 5px !important; }
+    .block-container { padding: 5px !important; max-width: 100vw !important; overflow-x: hidden !important; }
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
     
-    .database-card { 
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
-        display: flex; flex-direction: column; align-items: flex-start;
-    }
-    
-    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
-    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
-
+    /* כרטיס שחקן */
     .p-box {
         background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
-        margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
+        margin-bottom: 0px; display: flex; justify-content: space-between; align-items: center; min-height: 35px; width: 100%;
     }
     
     .team-stats {
@@ -31,9 +25,17 @@ st.markdown("""
         margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
     }
 
-    [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
+    /* הצמדת עמודות הקבוצות - מניעת WIDE */
+    [data-testid="stHorizontalBlock"] { 
+        display: flex !important; 
+        flex-direction: row !important; 
+        flex-wrap: nowrap !important; 
+        gap: 5px !important; 
+        align-items: center !important; 
+    }
+    [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
 
-    /* הפיכת הכפתור לקישור טקסט דרך CSS - עוקף את בעיית הגרסה */
+    /* הפיכת כפתור לקישור טקסט ויישורו לשורה */
     .swap-btn button {
         background-color: transparent !important;
         color: #60a5fa !important;
@@ -42,7 +44,16 @@ st.markdown("""
         text-decoration: underline !important;
         font-size: 13px !important;
         box-shadow: none !important;
+        display: inline-block !important;
+        margin-top: 0px !important;
     }
+    
+    /* עיצוב דפים אחרים (מאגר) */
+    .database-card { 
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
+    }
+    div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
+    div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -92,8 +103,6 @@ with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("בחר שחקנים שהגיעו:", all_names, selection_mode="multi", key="p_selection")
 
-    st.markdown(f"**נבחרו: {len(selected_names) if selected_names else 0} שחקנים**")
-
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
             pool = []
@@ -114,11 +123,11 @@ with tab1:
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
+                    # יחס עמודות ששומר על השורה ישרה
                     c_txt, c_swp = st.columns([0.7, 0.3])
                     with c_txt:
                         st.markdown(f"<div class='p-box'><span>{p['name']}</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
-                        # עטיפה ב-div עם class כדי להחיל את העיצוב
                         st.markdown('<div class="swap-btn">', unsafe_allow_html=True)
                         if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -127,16 +136,14 @@ with tab1:
                         st.markdown('</div>', unsafe_allow_html=True)
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
 
 # --- 5. טאב מאגר ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
         score, birth = get_player_stats(p['name'])
-        age = 2026 - birth
-        st.markdown(f"<div class='database-card'><div class='card-title'>{p['name']} ({age})</div><div class='card-detail'>ציון: {score:.1f} | תפקידים: {p.get('roles', 'לא הוגדר')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({2026-birth}) | ציון: {score:.1f}</div>", unsafe_allow_html=True)
         ce, cd = st.columns([4, 1])
         with ce:
             if st.button(f"📝 עריכה", key=f"db_ed_{i}", use_container_width=True):
@@ -151,17 +158,14 @@ with tab3:
     st.subheader("עדכון פרטים")
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
-    
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
     
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
-        
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=[r for r in existing_roles if r in roles_list])
-        
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
