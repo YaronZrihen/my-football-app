@@ -3,93 +3,52 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS "קשוח" - מונע WIDE ומכריח 2 עמודות ---
+# --- 1. עיצוב CSS (נעילה מוחלטת) ---
 st.set_page_config(page_title="כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
-    /* הגבלת רוחב האפליקציה כולה כדי שלא תימרח */
-    .block-container { 
-        max-width: 450px !important; 
-        padding: 5px !important; 
-    }
-    
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; }
+    .block-container { padding: 5px !important; max-width: 500px !important; }
 
-    /* יצירת טבלה חסינת סלולר */
-    .game-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed; /* מכריח רוחב עמודות קבוע */
+    /* מכולה שחייבת להישאר ב-2 טורים */
+    .mobile-grid {
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+        gap: 5px !important;
     }
-
-    .team-cell {
-        vertical-align: top;
-        width: 50%;
-        padding: 2px;
+    .team-col {
+        flex: 1 !important;
+        min-width: 48% !important;
     }
-
-    .team-header {
-        text-align: center;
-        font-weight: bold;
-        padding: 10px;
-        border-radius: 8px 8px 0 0;
-        font-size: 18px;
-        color: white;
+    .t-header {
+        text-align: center; font-weight: bold; padding: 10px;
+        border-radius: 8px 8px 0 0; color: white; font-size: 16px;
     }
-
-    .player-row-box {
-        background: #2d3748;
-        border: 1px solid #4a5568;
-        border-radius: 5px;
-        margin-bottom: 4px;
-        padding: 8px 5px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    .p-row {
+        background: #2d3748; border: 1px solid #4a5568;
+        border-radius: 5px; margin: 3px 0; padding: 8px;
+        display: flex; justify-content: space-between; align-items: center;
         height: 50px;
     }
-
-    .p-name { 
-        font-size: 15px; 
-        font-weight: bold; 
-        color: white; 
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis;
-        flex-grow: 1;
+    .p-name { font-size: 15px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-score { font-size: 12px; color: #22c55e; }
+    
+    /* עיצוב כפתור החלפה כקישור (Link) שנראה כמו כפתור */
+    .swap-btn {
+        background: #4a5568; color: white !important; text-decoration: none !important;
+        width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
+        border-radius: 4px; font-size: 18px; font-weight: bold;
     }
-
-    .p-score-label { 
-        font-size: 12px; 
-        color: #22c55e; 
-        margin-right: 5px;
-    }
-
-    /* כפתור החלפה שקוף ונקי */
-    .stButton button {
-        background-color: transparent !important;
-        border: 1px solid #4a5568 !important;
-        color: #cbd5e0 !important;
-        height: 35px !important;
-        width: 35px !important;
-        min-width: 35px !important;
-        font-size: 16px !important;
-        padding: 0 !important;
-    }
-
-    .team-footer {
-        background: #1e293b;
-        text-align: center;
-        padding: 8px;
-        font-size: 14px;
-        color: #60a5fa;
-        border-radius: 0 0 8px 8px;
+    .t-footer {
+        background: #1e293b; text-align: center; padding: 8px;
+        border-radius: 0 0 8px 8px; font-size: 13px; color: #60a5fa;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. חיבור נתונים ולוגיקה ---
+# --- 2. לוגיקה ונתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 if 'players' not in st.session_state:
     try:
@@ -97,27 +56,42 @@ if 'players' not in st.session_state:
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
     except: st.session_state.players = []
 
+# טיפול בהחלפת שחקנים דרך ה-URL (Query Params)
+query_params = st.query_params
+if "swap" in query_params and "from" in query_params:
+    player_name = query_params["swap"]
+    from_team = query_params["from"]
+    
+    if 't1' in st.session_state and 't2' in st.session_state:
+        if from_team == "t1":
+            p = next((x for x in st.session_state.t1 if x['name'] == player_name), None)
+            if p:
+                st.session_state.t1.remove(p)
+                st.session_state.t2.append(p)
+        else:
+            p = next((x for x in st.session_state.t2 if x['name'] == player_name), None)
+            if p:
+                st.session_state.t2.remove(p)
+                st.session_state.t1.append(p)
+    
+    st.query_params.clear()
+    st.rerun()
+
 def get_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 30
     r = float(p.get('rating', 5.0))
-    pr = json.loads(p.get('peer_ratings', '{}')) if isinstance(p.get('peer_ratings'), str) else {}
-    peers = [float(v) for v in pr.values()] if pr else []
-    score = (r + sum(peers)/len(peers))/2 if peers else r
-    return score, 2026 - int(p.get('birth_year', 1996))
+    return r, 2026 - int(p.get('birth_year', 1996))
 
-# --- 3. ממשק משתמש ---
-st.markdown("<h3 style='text-align:center; color:#60a5fa;'>⚽ וולפסון חולון</h3>", unsafe_allow_html=True)
+# --- 3. ממשק ---
+st.markdown("<h3 style='text-align:center;'>⚽ וולפסון חולון</h3>", unsafe_allow_html=True)
 
 all_n = sorted([p['name'] for p in st.session_state.players])
 selected = st.pills("מי משחק?", all_n, selection_mode="multi")
 
 if st.button("חלק קבוצות 🚀", use_container_width=True):
     if selected:
-        pool = []
-        for n in selected:
-            s, a = get_stats(n)
-            pool.append({'name': n, 'f': s, 'age': a})
+        pool = [{'name': n, 'f': get_stats(n)[0], 'age': get_stats(n)[1]} for n in selected]
         pool.sort(key=lambda x: x['f'], reverse=True)
         t1, t2 = [], []
         for i, p in enumerate(pool):
@@ -126,42 +100,36 @@ if st.button("חלק קבוצות 🚀", use_container_width=True):
         st.session_state.t1, st.session_state.t2 = t1, t2
 
 if 't1' in st.session_state and selected:
-    # יצירת מבנה הטבלה
     t1, t2 = st.session_state.t1, st.session_state.t2
     
-    # חישוב ממוצעים
-    avg1 = sum(p['f'] for p in t1)/len(t1) if t1 else 0
-    avg2 = sum(p['f'] for p in t2)/len(t2) if t2 else 0
+    def render_team(team, title, color, team_key):
+        avg = sum(p['f'] for p in team)/len(team) if team else 0
+        rows_html = ""
+        for p in team:
+            # יצירת לינק להחלפה
+            swap_url = f"?swap={p['name']}&from={team_key}"
+            rows_html += f"""
+            <div class="p-row">
+                <div style="display:flex; flex-direction:column; overflow:hidden;">
+                    <span class="p-name">{p['name']}</span>
+                    <span class="p-score">{p['f']:.1f}</span>
+                </div>
+                <a href="{swap_url}" target="_self" class="swap-btn">🔄</a>
+            </div>
+            """
+        return f"""
+        <div class="team-col">
+            <div class="t-header" style="background:{color};">{title}</div>
+            {rows_html}
+            <div class="t-footer">ממוצע: {avg:.1f}</div>
+        </div>
+        """
 
-    # עמודה 1 (לבן) ועמודה 2 (שחור) בתוך טבלה אחת
-    col_w, col_b = st.columns(2)
-    
-    with col_w:
-        st.markdown('<div class="team-header" style="background:#3b82f6;">⚪ לבן</div>', unsafe_allow_html=True)
-        for i, p in enumerate(t1):
-            c_inner_txt, c_inner_btn = st.columns([0.7, 0.3])
-            with c_inner_txt:
-                st.markdown(f"""<div class="player-row-box">
-                    <div class="p-name">{p['name']}</div>
-                    <div class="p-score-label">{p['f']:.1f}</div>
-                </div>""", unsafe_allow_html=True)
-            with c_inner_btn:
-                if st.button("🔄", key=f"w_{i}"):
-                    st.session_state.t2.append(st.session_state.t1.pop(i))
-                    st.rerun()
-        st.markdown(f'<div class="team-footer">רמה: {avg1:.1f}</div>', unsafe_allow_html=True)
-
-    with col_b:
-        st.markdown('<div class="team-header" style="background:#4a5568;">⚫ שחור</div>', unsafe_allow_html=True)
-        for i, p in enumerate(t2):
-            c_inner_txt, c_inner_btn = st.columns([0.7, 0.3])
-            with c_inner_txt:
-                st.markdown(f"""<div class="player-row-box">
-                    <div class="p-name">{p['name']}</div>
-                    <div class="p-score-label">{p['f']:.1f}</div>
-                </div>""", unsafe_allow_html=True)
-            with c_inner_btn:
-                if st.button("🔄", key=f"b_{i}"):
-                    st.session_state.t1.append(st.session_state.t2.pop(i))
-                    st.rerun()
-        st.markdown(f'<div class="team-footer">רמה: {avg2:.1f}</div>', unsafe_allow_html=True)
+    # הזרקת ה-HTML של שתי העמודות במכה אחת
+    full_grid_html = f"""
+    <div class="mobile-grid">
+        {render_team(t1, "⚪ לבן", "#3b82f6", "t1")}
+        {render_team(t2, "⚫ שחור", "#4a5568", "t2")}
+    </div>
+    """
+    st.markdown(full_grid_html, unsafe_allow_html=True)
