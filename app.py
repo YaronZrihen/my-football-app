@@ -1,86 +1,172 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# הגדרות בסיסיות
-st.set_page_config(page_title="כדורגל 2026", layout="centered")
+# --- 1. נעילת מבנה CSS (מכריח 2 עמודות בכל מכשיר) ---
+st.set_page_config(page_title="כדורגל וולפסון 2026", layout="centered")
 
-# לוגיקה וחיבור לנתונים
+st.markdown("""
+    <style>
+    /* הגדרות בסיס */
+    .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; }
+    .block-container { padding: 10px !important; max-width: 500px !important; }
+    
+    /* כפיית 2 עמודות בסלולר - ללא שבירת שורה */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+    }
+    [data-testid="column"] {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    /* כרטיס שחקן בעיצוב נקי */
+    .player-card {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        height: 70px;
+        justify-content: center;
+    }
+    .p-name { font-size: 17px !important; font-weight: bold; color: white; display: block; }
+    .p-stats { font-size: 12px !important; color: #22c55e; }
+
+    /* עיצוב כפתור ההחלפה 🔄 */
+    .stButton button {
+        width: 100% !important;
+        height: 70px !important;
+        background-color: #334155 !important;
+        color: white !important;
+        border: none !important;
+        font-size: 22px !important;
+        border-radius: 8px !important;
+    }
+    
+    .team-header {
+        text-align: center; font-weight: bold; padding: 12px; 
+        border-radius: 8px 8px 0 0; font-size: 18px; color: white;
+    }
+    .team-footer {
+        background: #1e293b; text-align: center; padding: 8px;
+        border-radius: 0 0 8px 8px; font-size: 13px; color: #60a5fa;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. חיבור לנתונים ולוגיקה ---
 conn = st.connection("gsheets", type=GSheetsConnection)
+
 if 'players' not in st.session_state:
     try:
         df = conn.read(ttl="0")
         st.session_state.players = df.dropna(subset=['name']).to_dict(orient='records')
-    except: st.session_state.players = []
+    except:
+        st.session_state.players = []
 
-def get_stats(name):
+def save_changes():
+    df = pd.DataFrame(st.session_state.players)
+    conn.update(data=df)
+    st.cache_data.clear()
+
+def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 30
-    return float(p.get('rating', 5.0)), 2026 - int(p.get('birth_year', 1996))
+    rating = float(p.get('rating', 5.0))
+    age = 2026 - int(p.get('birth_year', 1996))
+    return rating, age
 
-st.markdown("<h2 style='text-align:center; direction:rtl;'>⚽ וולפסון חולון</h2>", unsafe_allow_html=True)
+# --- 3. בניית הממשק ---
+st.title("⚽ וולפסון חולון")
 
-all_n = sorted([p['name'] for p in st.session_state.players])
-selected = st.pills("מי משחק היום?", all_n, selection_mode="multi")
+tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון פרטים"])
 
-if st.button("חלק קבוצות 🚀", use_container_width=True):
-    if selected:
-        pool = [{'name': n, 'f': get_stats(n)[0], 'age': get_stats(n)[1]} for n in selected]
-        pool.sort(key=lambda x: x['f'], reverse=True)
-        t1, t2 = [], []
-        for i, p in enumerate(pool):
-            if i % 4 == 0 or i % 4 == 3: t1.append(p)
-            else: t2.append(p)
-        st.session_state.t1, st.session_state.t2 = t1, t2
+# --- טאב 1: חלוקת קבוצות ---
+with tab1:
+    names_list = sorted([p['name'] for p in st.session_state.players])
+    selected = st.pills("מי משחק?", names_list, selection_mode="multi")
 
-if 't1' in st.session_state and selected:
-    t1, t2 = st.session_state.t1, st.session_state.t2
-    avg1 = sum(p['f'] for p in t1)/len(t1) if t1 else 0
-    avg2 = sum(p['f'] for p in t2)/len(t2) if t2 else 0
+    if st.button("חלק קבוצות 🚀", use_container_width=True):
+        if selected:
+            pool = []
+            for n in selected:
+                r, a = get_player_stats(n)
+                pool.append({'name': n, 'rating': r, 'age': a})
+            
+            pool.sort(key=lambda x: x['rating'], reverse=True)
+            t1, t2 = [], []
+            for i, p in enumerate(pool):
+                if i % 4 == 0 or i % 4 == 3: t1.append(p)
+                else: t2.append(p)
+            st.session_state.t1, st.session_state.t2 = t1, t2
 
-    # בניית ה-HTML בתוך משתנה אחד כדי למנוע שגיאות רינדור
-    def gen_team_html(team, title, color, avg):
-        cards = "".join([f"""
-            <div style="background:#2d3748; border:1px solid #4a5568; border-radius:8px; padding:12px; margin-bottom:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                <div style="font-size:18px; font-weight:bold; color:white;">{p['name']}</div>
-                <div style="font-size:13px; color:#22c55e;">רמה: {p['f']:.1f} | גיל: {p['age']}</div>
-            </div>
-        """ for p in team])
+    if 't1' in st.session_state and selected:
+        col_white, col_black = st.columns(2)
         
-        return f"""
-        <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
-            <div style="background:{color}; color:white; text-align:center; padding:12px; border-radius:8px; font-weight:bold; margin-bottom:10px; font-size:20px;">{title}</div>
-            {cards}
-            <div style="background:#1e293b; color:#60a5fa; text-align:center; padding:10px; border-radius:8px; font-size:14px; margin-top:5px; border:1px solid #334155;">ממוצע: {avg:.1f}</div>
-        </div>
-        """
+        # תצוגת קבוצה לבנה
+        with col_white:
+            st.markdown('<div class="team-header" style="background:#3b82f6;">⚪ לבן</div>', unsafe_allow_html=True)
+            for i, p in enumerate(st.session_state.t1):
+                c_txt, c_btn = st.columns([0.7, 0.3])
+                with c_txt:
+                    st.markdown(f"""<div class="player-card">
+                        <span class="p-name">{p['name']}</span>
+                        <span class="p-stats">רמה: {p['rating']:.1f} | {p['age']}</span>
+                    </div>""", unsafe_allow_html=True)
+                with c_btn:
+                    if st.button("🔄", key=f"w_sw_{i}"):
+                        st.session_state.t2.append(st.session_state.t1.pop(i))
+                        st.rerun()
+            avg1 = sum(p['rating'] for p in st.session_state.t1)/len(st.session_state.t1) if st.session_state.t1 else 0
+            st.markdown(f'<div class="team-footer">ממוצע: {avg1:.1f}</div>', unsafe_allow_html=True)
 
-    # הזרקת ה-HTML בתוך Component עצמאי (Iframe) למניעת קריסה בסלולר
-    full_html = f"""
-    <div dir="rtl" style="display:flex; gap:12px; width:100%; font-family:system-ui, -apple-system, sans-serif;">
-        {gen_team_html(t1, "⚪ לבן", "#3b82f6", avg1)}
-        {gen_team_html(t2, "⚫ שחור", "#4a5568", avg2)}
-    </div>
-    """
-    components.html(full_html, height=600, scrolling=True)
+        # תצוגת קבוצה שחורה
+        with col_black:
+            st.markdown('<div class="team-header" style="background:#4a5568;">⚫ שחור</div>', unsafe_allow_html=True)
+            for i, p in enumerate(st.session_state.t2):
+                c_txt, c_btn = st.columns([0.7, 0.3])
+                with c_txt:
+                    st.markdown(f"""<div class="player-card">
+                        <span class="p-name">{p['name']}</span>
+                        <span class="p-stats">רמה: {p['rating']:.1f} | {p['age']}</span>
+                    </div>""", unsafe_allow_html=True)
+                with c_btn:
+                    if st.button("🔄", key=f"b_sw_{i}"):
+                        st.session_state.t1.append(st.session_state.t2.pop(i))
+                        st.rerun()
+            avg2 = sum(p['rating'] for p in st.session_state.t2)/len(st.session_state.t2) if st.session_state.t2 else 0
+            st.markdown(f'<div class="team-footer">ממוצע: {avg2:.1f}</div>', unsafe_allow_html=True)
 
-    # מנגנון החלפה מהיר
-    st.write("---")
-    st.markdown("<h3 style='text-align:right; direction:rtl;'>🔄 החלפת שחקנים</h3>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        m1 = st.selectbox("העבר מהלבן לשחור:", ["--"] + [p['name'] for p in t1], key="sw1")
-        if m1 != "--":
-            p_obj = next(p for p in st.session_state.t1 if p['name'] == m1)
-            st.session_state.t1.remove(p_obj)
-            st.session_state.t2.append(p_obj)
-            st.rerun()
-    with c2:
-        m2 = st.selectbox("העבר מהשחור ללבן:", ["--"] + [p['name'] for p in t2], key="sw2")
-        if m2 != "--":
-            p_obj = next(p for p in st.session_state.t2 if p['name'] == m2)
-            st.session_state.t2.remove(p_obj)
-            st.session_state.t1.append(p_obj)
+# --- טאב 2: מאגר שחקנים ---
+with tab2:
+    st.subheader("רשימת כל השחקנים")
+    for p in st.session_state.players:
+        st.write(f"👤 **{p['name']}** - רמה: {p['rating']} | שנת לידה: {p['birth_year']}")
+        st.write("---")
+
+# --- טאב 3: עדכון פרטים ---
+with tab3:
+    st.subheader("הוספה או עדכון שחקן")
+    with st.form("player_form"):
+        name = st.text_input("שם השחקן")
+        birth = st.number_input("שנת לידה", 1950, 2020, 1995)
+        rating = st.slider("רמה (1-10)", 1.0, 10.0, 5.0)
+        
+        if st.form_submit_button("שמור שינויים"):
+            # לוגיקה לעדכון או הוספה
+            existing = next((p for p in st.session_state.players if p['name'] == name), None)
+            if existing:
+                existing['birth_year'] = birth
+                existing['rating'] = rating
+            else:
+                st.session_state.players.append({'name': name, 'birth_year': birth, 'rating': rating})
+            save_changes()
+            st.success("הנתונים נשמרו בהצלחה!")
             st.rerun()
