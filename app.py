@@ -3,25 +3,21 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS (חסין גלישה ושומר על העיצוב שלך) ---
+# --- 1. עיצוב CSS (גרסה בטוחה שלא מעלימה את הדף) ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
-    /* מניעת גלישה רוחבית מוחלטת (פתרון ה-WIDE) */
-    html, body, [data-testid="stAppViewContainer"] {
-        overflow-x: hidden !important;
-        position: relative;
-    }
-    .block-container { 
-        max-width: 100vw !important; 
-        overflow-x: hidden !important;
-        padding: 10px !important;
-    }
-
-    /* העיצוב המקורי שלך */
+    /* הגדרות בסיסיות */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
+    
+    /* מניעת גלישה רוחבית בלי להעלים את התוכן */
+    .block-container { 
+        padding: 10px !important; 
+        max-width: 100% !important; 
+    }
+
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
     
     .database-card { 
@@ -42,9 +38,17 @@ st.markdown("""
         margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
     }
 
-    /* שמירה על 2 עמודות צמודות בסלולר */
-    [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
+    /* תיקון העמודות שלא יברחו הצידה */
+    [data-testid="stHorizontalBlock"] { 
+        display: flex !important; 
+        flex-direction: row !important; 
+        flex-wrap: nowrap !important; 
+        gap: 5px !important; 
+    }
     [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
+    
+    /* הקטנת פונט בתוך הקופסאות כדי שלא ידחפו את העמודה */
+    .p-box span { font-size: 13px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -92,7 +96,7 @@ tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", 
 # --- 4. טאב חלוקה ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
-    selected_names = st.pills("בחר שחקנים שהגיעו:", all_names, selection_mode="multi", key="p_selection")
+    selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
 
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
@@ -116,7 +120,7 @@ with tab1:
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([4, 1])
                     with c_txt:
-                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='p-box'><span>{p['name']}</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
                         if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -124,16 +128,14 @@ with tab1:
                             st.rerun()
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
 
 # --- 5. טאב מאגר ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
         score, birth = get_player_stats(p['name'])
-        age = 2026 - birth
-        st.markdown(f"<div class='database-card'><div class='card-title'><b>{p['name']}</b> ({age})</div><div class='card-detail'>ציון: {score:.1f} | תפקידים: {p.get('roles', 'לא הוגדר')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({2026-birth}) | {score:.1f}</div>", unsafe_allow_html=True)
         ce, cd = st.columns([4, 1])
         with ce:
             if st.button(f"📝 עריכה", key=f"db_ed_{i}", use_container_width=True):
@@ -148,7 +150,6 @@ with tab3:
     st.subheader("עדכון פרטים")
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
-    
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
     
     with st.form("edit_form"):
@@ -178,5 +179,3 @@ with tab3:
                     st.session_state.players[idx] = new_entry
                 else: st.session_state.players.append(new_entry)
                 save_to_gsheets(); st.session_state.edit_name = f_name; st.rerun()
-            else:
-                st.error("נא להזין שם שחקן")
