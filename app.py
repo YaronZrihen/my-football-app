@@ -3,75 +3,84 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS "נועל מסך" ---
+# --- 1. נעילת רוחב מוחלטת ב-CSS ---
 st.set_page_config(page_title="כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
-    /* ביטול גלישה לצדדים ונעילת רוחב */
+    /* ביטול כל גלישה רוחבית */
     html, body, [data-testid="stAppViewContainer"] {
         overflow-x: hidden !important;
-        width: 100vw;
+        position: fixed;
+        width: 100%;
+        height: 100%;
     }
     
     .block-container { 
         max-width: 100% !important; 
-        padding-left: 5px !important; 
-        padding-right: 5px !important; 
+        padding: 5px !important; 
     }
 
-    /* כפיית 2 עמודות צמודות - ללא גלישה */
+    /* כפיית 2 טורים שאינם זזים */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        width: 100% !important;
         gap: 4px !important;
+        width: 100% !important;
     }
     
     [data-testid="column"] {
-        width: calc(50% - 2px) !important; /* בדיוק חצי מסך */
-        flex: none !important;
+        width: 50% !important;
+        flex: 1 !important;
         min-width: 0 !important;
     }
 
-    /* כרטיס שחקן צר וגבוה */
-    .p-card {
+    /* כרטיס שחקן שכולל בתוכו את הכל */
+    .player-row {
+        position: relative;
         background: #2d3748;
         border: 1px solid #4a5568;
-        border-radius: 4px;
-        padding: 5px;
+        border-radius: 6px;
+        margin-bottom: 5px;
         height: 60px;
         display: flex;
+        align-items: center;
+        padding-right: 10px;
+    }
+
+    .p-text {
+        display: flex;
         flex-direction: column;
-        justify-content: center;
-        overflow: hidden; /* מונע מהטקסט להרחיב את הכרטיס */
+        width: 70%;
+        overflow: hidden;
     }
 
     .p-name { 
-        font-size: 14px !important; 
+        font-size: 16px !important; 
         font-weight: bold; 
         color: white; 
         white-space: nowrap; 
         overflow: hidden; 
-        text-overflow: ellipsis; /* חיתוך שם ארוך עם ... */
+        text-overflow: ellipsis; 
     }
 
-    .p-stats { font-size: 11px !important; color: #22c55e; }
+    .p-stats { font-size: 12px !important; color: #22c55e; }
 
-    /* כפתור החלפה קטן וקבוע */
-    [data-testid="column"] button {
-        height: 60px !important;
-        min-width: 35px !important;
-        width: 100% !important;
-        background-color: #334155 !important;
+    /* עיצוב כפתור ההחלפה - שיושב בצד שמאל של הכרטיס */
+    .stButton button {
+        background-color: #4a5568 !important;
         border: none !important;
+        color: white !important;
+        height: 40px !important;
+        width: 40px !important;
+        min-width: 40px !important;
         padding: 0 !important;
         font-size: 18px !important;
+        border-radius: 4px !important;
     }
-
-    .team-h { text-align: center; font-weight: bold; padding: 8px; border-radius: 4px 4px 0 0; font-size: 15px; }
-    .team-f { background: #1e293b; text-align: center; padding: 5px; border-radius: 0 0 4px 4px; font-size: 11px; color: #60a5fa; }
+    
+    .team-h { text-align: center; font-weight: bold; padding: 10px; border-radius: 6px 6px 0 0; font-size: 16px; }
+    .team-f { background: #1e293b; text-align: center; padding: 6px; border-radius: 0 0 6px 6px; font-size: 12px; color: #60a5fa; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,7 +98,7 @@ def get_stats(name):
     return float(p.get('rating', 5.0)), 2026 - int(p.get('birth_year', 1996))
 
 # --- 3. ממשק ---
-st.markdown("<h2 style='text-align:center;'>⚽ וולפסון חולון</h2>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align:center;'>⚽ וולפסון חולון</h3>", unsafe_allow_html=True)
 
 all_n = sorted([p['name'] for p in st.session_state.players])
 selected = st.pills("מי משחק?", all_n, selection_mode="multi")
@@ -105,7 +114,6 @@ if st.button("חלק קבוצות 🚀", use_container_width=True):
         st.session_state.t1, st.session_state.t2 = t1, t2
 
 if 't1' in st.session_state and selected:
-    # עמודות ראשיות (לבן מול שחור)
     c_left, c_right = st.columns(2)
     
     teams = [
@@ -117,14 +125,19 @@ if 't1' in st.session_state and selected:
         with conf["col"]:
             st.markdown(f"<div class='team-h' style='background:{conf['color']};'>{conf['label']}</div>", unsafe_allow_html=True)
             for i, p in enumerate(conf["team"]):
-                # עמודות פנימיות בתוך כל קבוצה (שם מול כפתור)
-                ci1, ci2 = st.columns([0.7, 0.3])
-                with ci1:
-                    st.markdown(f"""<div class='p-card'>
-                        <div class='p-name'>{p['name']}</div>
-                        <div class='p-stats'>{p['f']:.1f} | {p['age']}</div>
-                    </div>""", unsafe_allow_html=True)
-                with ci2:
+                # כאן הסוד: שימוש בעמודות עם מרווח מינימלי
+                row_col1, row_col2 = st.columns([0.7, 0.3])
+                with row_col1:
+                    st.markdown(f"""
+                        <div class="player-row">
+                            <div class="p-text">
+                                <span class="p-name">{p['name']}</span>
+                                <span class="p-stats">{p['f']:.1f} | {p['age']}</span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with row_col2:
+                    # הכפתור מוצמד ידנית דרך CSS כדי שלא יברח
                     if st.button("🔄", key=f"b_{conf['id']}_{i}"):
                         if conf['id'] == "t1":
                             st.session_state.t2.append(st.session_state.t1.pop(i))
