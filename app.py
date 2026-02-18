@@ -3,14 +3,21 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS ---
+# --- 1. עיצוב CSS (עודכן למניעת WIDE) ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
-    .block-container { padding: 5px !important; }
+    
+    /* מניעת גלישה רוחבית (WIDE) בסלולר */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow-x: hidden !important;
+        width: 100vw;
+    }
+    .block-container { padding: 5px !important; max-width: 100% !important; }
+    
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
     
     .database-card { 
@@ -18,7 +25,6 @@ st.markdown("""
         display: flex; flex-direction: column; align-items: flex-start;
     }
     
-    /* עיצוב Pills (גם בחלוקה וגם בטופס) */
     div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
     div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
 
@@ -32,11 +38,19 @@ st.markdown("""
         margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
     }
 
-    [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
+    /* נעילת העמודות - הפתרון ל-WIDE */
+    [data-testid="stHorizontalBlock"] { 
+        display: flex !important; 
+        flex-direction: row !important; 
+        flex-wrap: nowrap !important; 
+        gap: 5px !important; 
+        width: 100% !important;
+    }
+    [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. פונקציות עזר ---
+# --- 2. פונקציות עזר (ללא שינוי) ---
 def safe_split(val):
     if not val or pd.isna(val): return []
     return str(val).split(',')
@@ -141,12 +155,10 @@ with tab3:
     
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
     
-    # בתוך טופס
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
         
-        # שימוש ב-st.pills עבור תפקידים
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=[r for r in existing_roles if r in roles_list])
@@ -163,7 +175,6 @@ with tab3:
 
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
-                # וידוא ש-f_roles הוא רשימה (st.pills מחזיר רשימה ב-multi)
                 roles_str = ",".join(f_roles) if f_roles else ""
                 new_entry = {"name": f_name, "birth_year": f_year, "rating": f_rate, "roles": roles_str, "peer_ratings": json.dumps(peer_res)}
                 if p_data:
