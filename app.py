@@ -37,19 +37,20 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         justify-content: center;
-        height: 55px;
+        height: 60px;
     }
-    .p-name-main { font-size: 16px !important; font-weight: bold; color: white; display: block; }
+    .p-name-main { font-size: 16px !important; font-weight: bold; color: white; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .p-stats-sub { font-size: 12px !important; color: #22c55e; }
 
-    /* עיצוב כפתור החלפה נקי */
+    /* עיצוב כפתור החלפה נקי ללא מסגרת */
     .stButton button {
         border: none !important;
         background-color: #334155 !important;
         color: white !important;
-        height: 55px !important;
+        height: 60px !important;
         width: 100% !important;
-        font-size: 18px !important;
+        font-size: 20px !important;
+        border-radius: 6px !important;
     }
 
     .team-header-box {
@@ -63,7 +64,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. לוגיקה וחיבור לנתונים (החלק שחזר) ---
+# --- 2. לוגיקה וחיבור לנתונים ---
 def safe_get_json(val):
     if not val or pd.isna(val): return {}
     if isinstance(val, dict): return val
@@ -87,11 +88,16 @@ def save_to_gsheets():
 def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1995
+    
     r = float(p.get('rating', 5.0))
-    pr = safe_get_json(p.get('peer_ratings', '{}'))
-    peers = [float(v) for v in pr.values()] if peers else []
-    avg_p = sum(peers)/len(peers) if peers else 0
-    return (r + avg_p) / 2 if avg_p > 0 else r, int(p.get('birth_year', 1995))
+    # תיקון השגיאה כאן:
+    pr_data = safe_get_json(p.get('peer_ratings', '{}'))
+    peer_values = [float(v) for v in pr_data.values()] if pr_data else []
+    
+    avg_p = sum(peer_values) / len(peer_values) if peer_values else 0
+    final_score = (r + avg_p) / 2 if avg_p > 0 else r
+    
+    return final_score, int(p.get('birth_year', 1995))
 
 # --- 3. כותרת ---
 st.markdown("<div class='main-title'>⚽ ניהול קבוצות כדורגל</div>", unsafe_allow_html=True)
@@ -110,6 +116,7 @@ with tab1:
             for n in selected_names:
                 s, b = get_player_stats(n)
                 pool.append({'name': n, 'f': s, 'age': 2026 - b})
+            
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
             for i, p in enumerate(pool):
@@ -129,6 +136,7 @@ with tab1:
             with team["col"]:
                 st.markdown(f"<div class='team-header-box' style='background:{team['color']};'>{team['label']}</div>", unsafe_allow_html=True)
                 for i, p in enumerate(team["t"]):
+                    # חלוקה ל-2 עמודות פנימיות עבור השם והכפתור
                     c_txt, c_btn = st.columns([3, 1])
                     with c_txt:
                         st.markdown(f"""<div class='p-card-mobile'>
@@ -137,20 +145,25 @@ with tab1:
                         </div>""", unsafe_allow_html=True)
                     with c_btn:
                         if st.button("🔄", key=f"sw_{team['id']}_{i}"):
-                            if team['id'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
-                            else: st.session_state.t1.append(st.session_state.t2.pop(i))
+                            if team['id'] == "w": 
+                                st.session_state.t2.append(st.session_state.t1.pop(i))
+                            else: 
+                                st.session_state.t1.append(st.session_state.t2.pop(i))
                             st.rerun()
                 
                 if team["t"]:
                     avg_f = sum(x['f'] for x in team["t"]) / len(team["t"])
-                    st.markdown(f"<div class='stats-footer'>ממוצע: {avg_f:.1f}</div>", unsafe_allow_html=True)
+                    avg_a = sum(x['age'] for x in team["t"]) / len(team["t"])
+                    st.markdown(f"<div class='stats-footer'>רמה: {avg_f:.1f} | גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
+        
+        for _ in range(5): st.write("")
 
 # --- 5. טאב מאגר ---
 with tab2:
     for i, p in enumerate(st.session_state.players):
         score, birth = get_player_stats(p['name'])
-        st.markdown(f"**{p['name']}** (בן {2026-birth}) | ציון: {score:.1f}")
-        if st.button(f"ערוך את {p['name']}", key=f"ed_btn_{i}"):
+        st.markdown(f"**{p['name']}** (בן {2026-birth}) | ציון משולב: {score:.1f}")
+        if st.button(f"ערוך פרטים", key=f"ed_list_{i}"):
             st.session_state.edit_name = p['name']
             st.rerun()
         st.write("---")
@@ -167,14 +180,26 @@ with tab3:
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2020, int(p_data['birth_year']) if p_data else 1990)
         roles_list = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
-        f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=p_data.get('roles', '').split(',') if p_data and p_data.get('roles') else [])
+        
+        current_roles = p_data.get('roles', '').split(',') if p_data and p_data.get('roles') else []
+        f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=[r for r in current_roles if r in roles_list])
+        
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
-                new_entry = {"name": f_name, "birth_year": f_year, "rating": f_rate, "roles": ",".join(f_roles), "peer_ratings": p_data.get('peer_ratings', '{}') if p_data else '{}'}
+                new_entry = {
+                    "name": f_name, 
+                    "birth_year": f_year, 
+                    "rating": f_rate, 
+                    "roles": ",".join(f_roles), 
+                    "peer_ratings": p_data.get('peer_ratings', '{}') if p_data else '{}'
+                }
                 if p_data:
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)
                     st.session_state.players[idx] = new_entry
-                else: st.session_state.players.append(new_entry)
-                save_to_gsheets(); st.rerun()
+                else:
+                    st.session_state.players.append(new_entry)
+                save_to_gsheets()
+                st.success("נשמר בהצלחה!")
+                st.rerun()
