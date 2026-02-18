@@ -3,59 +3,63 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS "נועל" - מונע WIDE מוחלט ---
+# --- 1. עיצוב CSS חסין סלולר ומונע WIDE ---
 st.set_page_config(page_title="כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
-    /* מניעת WIDE וגלישה */
-    .block-container { max-width: 500px !important; padding: 10px !important; }
+    /* נעילת רוחב האפליקציה */
+    .block-container { 
+        max-width: 100% !important; 
+        padding: 5px !important; 
+    }
     .stApp { background-color: #1a1c23; color: white; direction: rtl; }
     
-    /* טבלה חסינת סלולר */
+    /* הגדרות טבלה */
     .main-table {
         width: 100%;
         border-collapse: collapse;
-        table-layout: fixed;
+        table-layout: fixed; /* חשוב מאוד למניעת WIDE */
     }
-    .team-col {
+    .team-cell {
         width: 50%;
         vertical-align: top;
-        padding: 4px;
+        padding: 2px;
     }
-    .header {
-        text-align: center;
-        padding: 10px;
-        border-radius: 8px 8px 0 0;
-        font-weight: bold;
-        font-size: 16px;
-    }
-    .player-card {
+
+    /* כרטיס שחקן בתוך התא */
+    .player-box {
         background: #2d3748;
         border: 1px solid #4a5568;
-        padding: 8px;
-        margin-top: 4px;
         border-radius: 4px;
+        padding: 5px;
         height: 50px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        overflow: hidden;
     }
-    .p-name { font-size: 15px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .p-stats { font-size: 11px; color: #22c55e; }
-    
-    .footer {
-        background: #1e293b;
-        text-align: center;
-        padding: 6px;
-        font-size: 12px;
-        border-radius: 0 0 8px 8px;
-        color: #60a5fa;
+
+    /* עיצוב כפתור 🔄 בתוך העמודה הקטנה */
+    [data-testid="column"] button {
+        height: 50px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        background-color: #334155 !important;
+        border: none !important;
+        font-size: 18px !important;
+        color: white !important;
     }
+
+    .t-header { text-align: center; font-weight: bold; padding: 8px; border-radius: 4px; font-size: 15px; margin-bottom: 5px; }
+    .t-footer { background: #1e293b; text-align: center; padding: 5px; border-radius: 4px; font-size: 12px; color: #60a5fa; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. נתונים ולוגיקה ---
+# --- 2. לוגיקה ונתונים ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 if 'players' not in st.session_state:
     try:
@@ -85,59 +89,62 @@ if st.button("חלק קבוצות 🚀", use_container_width=True):
         st.session_state.t1, st.session_state.t2 = t1, t2
 
 if 't1' in st.session_state and selected:
-    t1, t2 = st.session_state.t1, st.session_state.t2
+    # יצירת מבנה הטבלה
+    st.write("") # מרווח
     
-    # בניית שורות השחקנים לטבלה
-    max_len = max(len(t1), len(t2))
-    rows_html = ""
-    for i in range(max_len):
-        p1 = t1[i] if i < len(t1) else None
-        p2 = t2[i] if i < len(t2) else None
-        
-        cell1 = f"<div class='player-card'><div class='p-name'>{p1['name']}</div><div class='p-stats'>{p1['r']:.1f} | {p1['a']}</div></div>" if p1 else ""
-        cell2 = f"<div class='player-card'><div class='p-name'>{p2['name']}</div><div class='p-stats'>{p2['r']:.1f} | {p2['a']}</div></div>" if p2 else ""
-        
-        rows_html += f"<tr><td class='team-col'>{cell1}</td><td class='team-col'>{cell2}</td></tr>"
-
-    avg1 = sum(p['r'] for p in t1)/len(t1) if t1 else 0
-    avg2 = sum(p['r'] for p in t2)/len(t2) if t2 else 0
-
-    # הזרקת הטבלה (חסין WIDE)
+    # כותרות הקבוצות (בתוך טבלה)
     st.markdown(f"""
     <table class="main-table">
         <tr>
-            <td class="team-col"><div class="header" style="background:#3b82f6;">⚪ לבן</div></td>
-            <td class="team-col"><div class="header" style="background:#4a5568;">⚫ שחור</div></td>
-        </tr>
-        {rows_html}
-        <tr>
-            <td class="team-col"><div class="footer">רמה: {avg1:.1f}</div></td>
-            <td class="team-col"><div class="footer">רמה: {avg2:.1f}</div></td>
+            <td class="team-cell"><div class="t-header" style="background:#3b82f6;">⚪ לבן</div></td>
+            <td class="team-cell"><div class="t-header" style="background:#4a5568;">⚫ שחור</div></td>
         </tr>
     </table>
     """, unsafe_allow_html=True)
 
-    # --- מנגנון החלפה מהיר (מחוץ לטבלה כדי שלא ישבור אותה) ---
-    st.write("")
-    with st.expander("🔄 החלפת שחקן"):
-        c1, c2 = st.columns(2)
-        with c1:
-            m1 = st.selectbox("מהלבן:", ["--"] + [p['name'] for p in t1])
-        with c2:
-            m2 = st.selectbox("מהשחור:", ["--"] + [p['name'] for p in t2])
-        
-        if st.button("בצע החלפה ✅", use_container_width=True):
-            if m1 != "--" and m2 != "--":
-                p1_obj = next(p for p in st.session_state.t1 if p['name'] == m1)
-                p2_obj = next(p for p in st.session_state.t2 if p['name'] == m2)
-                st.session_state.t1.remove(p1_obj)
-                st.session_state.t2.remove(p2_obj)
-                st.session_state.t1.append(p2_obj)
-                st.session_state.t2.append(p1_obj)
-                st.rerun()
+    # הצגת השחקנים - שילוב של טבלה עם כפתורי Streamlit
+    t1 = st.session_state.t1
+    t2 = st.session_state.t2
+    max_len = max(len(t1), len(t2))
 
-# --- שאר הקוד (מאגר/עדכון) ---
-with st.sidebar:
-    st.header("ניהול מאגר")
-    if st.button("הצג שחקנים"):
-        st.write(st.session_state.players)
+    for i in range(max_len):
+        col_left, col_right = st.columns(2) # אלו שתי העמודות הראשיות (50/50)
+        
+        # צד לבן
+        with col_left:
+            if i < len(t1):
+                p = t1[i]
+                c1, c2 = st.columns([0.75, 0.25])
+                with c1:
+                    st.markdown(f"<div class='player-box'><div class='p-name'>{p['name']}</div><div class='p-stats'>{p['r']:.1f} | {p['a']}</div></div>", unsafe_allow_html=True)
+                with c2:
+                    if st.button("🔄", key=f"sw_w_{i}"):
+                        st.session_state.t2.append(st.session_state.t1.pop(i))
+                        st.rerun()
+            else: st.write("")
+
+        # צד שחור
+        with col_right:
+            if i < len(t2):
+                p = t2[i]
+                c1, c2 = st.columns([0.75, 0.25])
+                with c1:
+                    st.markdown(f"<div class='player-box'><div class='p-name'>{p['name']}</div><div class='p-stats'>{p['r']:.1f} | {p['a']}</div></div>", unsafe_allow_html=True)
+                with c2:
+                    if st.button("🔄", key=f"sw_b_{i}"):
+                        st.session_state.t1.append(st.session_state.t2.pop(i))
+                        st.rerun()
+            else: st.write("")
+
+    # סיכום רמה בתחתית
+    avg1 = sum(p['r'] for p in t1)/len(t1) if t1 else 0
+    avg2 = sum(p['r'] for p in t2)/len(t2) if t2 else 0
+    
+    st.markdown(f"""
+    <table class="main-table">
+        <tr>
+            <td class="team-cell"><div class="t-footer">רמה: {avg1:.1f}</div></td>
+            <td class="team-cell"><div class="t-footer">רמה: {avg2:.1f}</div></td>
+        </tr>
+    </table>
+    """, unsafe_allow_html=True)
