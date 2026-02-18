@@ -3,36 +3,52 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
 
-# --- 1. עיצוב CSS ---
+# --- 1. עיצוב CSS (כולל תיקון קריטי לסלולר ויישור לימין) ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
     <style>
+    /* הגדרות כלליות */
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
-    .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
+    
+    .main-title { font-size: 24px !important; text-align: center !important; font-weight: bold; margin-bottom: 5px; color: #60a5fa; }
+    .sub-title { font-size: 16px !important; text-align: center !important; margin-bottom: 20px; color: #cbd5e0; }
     
     .database-card { 
         background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; padding: 12px; margin-bottom: 5px;
         display: flex; flex-direction: column; align-items: flex-start;
     }
     
-    /* עיצוב Pills (גם בחלוקה וגם בטופס) */
+    /* עיצוב Pills */
     div[data-testid="stPills"] button { background-color: #4a5568 !important; color: white !important; border-radius: 20px !important; }
     div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; border: 1px solid white !important; }
 
+    /* שורת שחקן */
     .p-box {
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 6px;
         margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
     }
     
-    .team-stats {
-        background: #1e293b; border-top: 2px solid #4a5568; padding: 8px;
-        margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
+    /* תיקון 2 עמודות בסלולר - כפייה של פריסה אופקית */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    [data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 0 !important; /* מונע מהעמודה להתרחב מעבר לחצי מסך */
     }
 
-    [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
+    .team-stats {
+        background: #1e293b; border-top: 2px solid #4a5568; padding: 6px;
+        margin-top: 5px; font-size: 11px; text-align: center; border-radius: 0 0 8px 8px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -71,10 +87,12 @@ def get_player_stats(name):
     final_score = (r + avg_p) / 2 if avg_p > 0 else r
     return final_score, int(p.get('birth_year', 1995))
 
-# --- 3. ניווט ---
+# --- 3. כותרת עליונה ---
+st.markdown("<div class='main-title'>⚽ ניהול קבוצות כדורגל</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>שישי וולפסון חולון</div>", unsafe_allow_html=True)
+
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
 
-st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
 # --- 4. טאב חלוקה ---
@@ -100,13 +118,14 @@ with tab1:
     if 't1' in st.session_state and selected_names:
         col_w, col_b = st.columns(2)
         teams_data = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
+        
         for col, data in zip([col_w, col_b], teams_data):
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    c_txt, c_swp = st.columns([4, 1])
+                    c_txt, c_swp = st.columns([3, 1])
                     with c_txt:
-                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:10px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
                         if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -116,6 +135,12 @@ with tab1:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
                     st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
+
+    # הוספת שורות ריקות בתחתית
+    st.write("")
+    st.write("")
+    st.write("")
+    st.write("")
 
 # --- 5. טאב מאגר ---
 with tab2:
@@ -138,19 +163,14 @@ with tab3:
     st.subheader("עדכון פרטים")
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
-    
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
     
-    # בתוך טופס
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
-        
-        # שימוש ב-st.pills עבור תפקידים
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=[r for r in existing_roles if r in roles_list])
-        
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
@@ -163,7 +183,6 @@ with tab3:
 
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
-                # וידוא ש-f_roles הוא רשימה (st.pills מחזיר רשימה ב-multi)
                 roles_str = ",".join(f_roles) if f_roles else ""
                 new_entry = {"name": f_name, "birth_year": f_year, "rating": f_rate, "roles": roles_str, "peer_ratings": json.dumps(peer_res)}
                 if p_data:
