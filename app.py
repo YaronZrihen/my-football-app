@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
+from datetime import datetime
 
 # --- 1. עיצוב CSS ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
@@ -32,14 +33,13 @@ st.markdown("""
 
     [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
     
-    /* עיצוב כפתור "החלף" כקישור נקי למניעת WIDE */
     div[data-testid="column"] button {
         background-color: transparent !important;
         color: #60a5fa !important;
         border: none !important;
         padding: 0 !important;
         text-decoration: underline !important;
-        font-size: 13px !important;
+        font-size: 12px !important;
         height: auto !important;
     }
     </style>
@@ -96,9 +96,10 @@ with tab1:
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
             pool = []
+            current_year = 2026
             for n in selected_names:
                 s, b = get_player_stats(n)
-                pool.append({'name': n, 'f': s, 'age': 2026 - b})
+                pool.append({'name': n, 'f': s, 'age': current_year - b})
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
             for i, p in enumerate(pool):
@@ -115,7 +116,8 @@ with tab1:
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([3, 1])
                     with c_txt:
-                        st.markdown(f"<div class='p-box'><span>{p['name']}</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                        # הצגת שם וגיל (בסוגריים)
+                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
                     with c_swp:
                         if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -123,14 +125,17 @@ with tab1:
                             st.rerun()
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b></div>", unsafe_allow_html=True)
+                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
+                    # הצגת מאזן רמה וגיל ממוצע
+                    st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל ממוצע: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
 # --- 5. טאב מאגר ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
         score, birth = get_player_stats(p['name'])
-        st.markdown(f"<div class='database-card'><b>{p['name']}</b> | ציון: {score:.1f}</div>", unsafe_allow_html=True)
+        age = 2026 - birth
+        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({age}) | ציון: {score:.1f}</div>", unsafe_allow_html=True)
         ce, cd = st.columns([4, 1])
         with ce:
             if st.button(f"📝 עריכה", key=f"db_ed_{i}", use_container_width=True):
@@ -157,15 +162,13 @@ with tab3:
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
-        st.write("דירוג עמיתים (דרג את השחקנים האחרים):")
+        st.write("דירוג עמיתים:")
         
         peer_res = {}
-        # שליפת הדירוגים הקיימים
         exist_p = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
         other_p = [p for p in st.session_state.players if p['name'] != f_name]
         
         for op in other_p:
-            # שימוש ב-key ייחודי כדי לוודא שמירת ערך
             peer_res[op['name']] = st.radio(
                 f"דרג את {op['name']}:", 
                 range(1, 11), 
