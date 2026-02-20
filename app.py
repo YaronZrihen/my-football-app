@@ -38,7 +38,7 @@ st.markdown("""
         border: none !important;
         padding: 0 !important;
         text-decoration: underline !important;
-        font-size: 12px !important;
+        font-size: 13px !important;
         height: auto !important;
     }
     </style>
@@ -54,6 +54,9 @@ def safe_get_json(val):
     if isinstance(val, dict): return val
     try:
         cleaned = str(val).strip()
+        # תיקון למקרה שהערך הוא מחרוזת של JSON בתוך מחרוזת
+        if cleaned.startswith("'") and cleaned.endswith("'"):
+            cleaned = cleaned[1:-1]
         return json.loads(cleaned) if cleaned else {}
     except: return {}
 
@@ -74,19 +77,28 @@ def save_to_gsheets():
 def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1995, 0
-    r = float(p.get('rating', 5.0))
-    # שליפת דירוגי עמיתים מכל השחקנים שדירגו את השחקן הזה
-    peers_scores = []
-    for other_p in st.session_state.players:
-        if other_p['name'] == name: continue
-        pr = safe_get_json(other_p.get('peer_ratings', '{}'))
-        if name in pr:
-            peers_scores.append(float(pr[name]))
     
-    num_raters = len(peers_scores)
-    avg_p = sum(peers_scores)/num_raters if num_raters > 0 else 0
-    final_score = (r + avg_p) / 2 if num_raters > 0 else r
-    return final_score, int(p.get('birth_year', 1995)), num_raters
+    self_rating = float(p.get('rating', 5.0))
+    
+    # חישוב דירוגי עמיתים - סריקה של כל המאגר
+    peer_scores = []
+    for voter in st.session_state.players:
+        # שחקן לא יכול לדרג את עצמו כ"עמית" (זה כבר ב-self_rating)
+        if voter['name'] == name:
+            continue
+            
+        voter_ratings = safe_get_json(voter.get('peer_ratings', '{}'))
+        # בודקים אם המדרג אכן נתן ציון לשחקן הזה
+        if name in voter_ratings and voter_ratings[name] is not None:
+            peer_scores.append(float(voter_ratings[name]))
+    
+    count = len(peer_scores)
+    avg_peer = sum(peer_scores) / count if count > 0 else 0
+    
+    # שקלול: אם יש מדרגים, הציון הוא ממוצע של הדירוג העצמי וממוצע העמיתים
+    final_score = (self_rating + avg_peer) / 2 if count > 0 else self_rating
+    
+    return final_score, int(p.get('birth_year', 1995)), count
 
 # --- 3. ניווט ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
@@ -102,10 +114,15 @@ with tab1:
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
             pool = []
-            current_year = 2026
             for n in selected_names:
-                s, b, count = get_player_stats(n)
-                pool.append({'name': n, 'f': s, 'age': current_year - b, 'raters': count})
+                score, year, raters_count = get_player_stats(n)
+                pool.append({
+                    'name': n, 
+                    'f': score, 
+                    'age': 2026 - year, 
+                    'raters': raters_count
+                })
+            
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
             for i, p in enumerate(pool):
@@ -122,7 +139,6 @@ with tab1:
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([3, 1])
                     with c_txt:
-                        # הוספת מספר המדרגים בסוגריים קטנים ליד הציון
                         st.markdown(f"""
                             <div class='p-box'>
                                 <span>{p['name']} ({p['age']})</span>
@@ -172,21 +188,21 @@ with tab3:
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
         
-        f_rate = st.radio("ציון עצמי (איך אתה מעריך את עצמך):", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
+        f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
-        st.write("דירוג עמיתים (דרג שחקנים אחרים):")
+        st.write("דירוג עמיתים (דרג אחרים):")
         
-        # קבלת הדירוגים שניתנו על ידי המשתמש הנוכחי
         peer_res = {}
         exist_p = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
         other_p = [p for p in st.session_state.players if p['name'] != f_name]
         
         for op in other_p:
+            current_val = int(exist_p.get(op['name'], 5))
             peer_res[op['name']] = st.radio(
                 f"דרג את {op['name']}:", 
                 range(1, 11), 
-                index=int(exist_p.get(op['name'], 5))-1, 
+                index=current_val - 1, 
                 horizontal=True, 
                 key=f"pr_{f_name}_{op['name']}"
             )
