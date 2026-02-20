@@ -2,7 +2,6 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import json
-from datetime import datetime
 
 # --- 1. עיצוב CSS ---
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
@@ -74,13 +73,20 @@ def save_to_gsheets():
 
 def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
-    if not p: return 5.0, 1995
+    if not p: return 5.0, 1995, 0
     r = float(p.get('rating', 5.0))
-    pr = safe_get_json(p.get('peer_ratings', '{}'))
-    peers = [float(v) for v in pr.values()] if isinstance(pr, dict) else []
-    avg_p = sum(peers)/len(peers) if peers else 0
-    final_score = (r + avg_p) / 2 if avg_p > 0 else r
-    return final_score, int(p.get('birth_year', 1995))
+    # שליפת דירוגי עמיתים מכל השחקנים שדירגו את השחקן הזה
+    peers_scores = []
+    for other_p in st.session_state.players:
+        if other_p['name'] == name: continue
+        pr = safe_get_json(other_p.get('peer_ratings', '{}'))
+        if name in pr:
+            peers_scores.append(float(pr[name]))
+    
+    num_raters = len(peers_scores)
+    avg_p = sum(peers_scores)/num_raters if num_raters > 0 else 0
+    final_score = (r + avg_p) / 2 if num_raters > 0 else r
+    return final_score, int(p.get('birth_year', 1995)), num_raters
 
 # --- 3. ניווט ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
@@ -98,8 +104,8 @@ with tab1:
             pool = []
             current_year = 2026
             for n in selected_names:
-                s, b = get_player_stats(n)
-                pool.append({'name': n, 'f': s, 'age': current_year - b})
+                s, b, count = get_player_stats(n)
+                pool.append({'name': n, 'f': s, 'age': current_year - b, 'raters': count})
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
             for i, p in enumerate(pool):
@@ -116,8 +122,16 @@ with tab1:
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([3, 1])
                     with c_txt:
-                        # הצגת שם וגיל (בסוגריים)
-                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span></div>", unsafe_allow_html=True)
+                        # הוספת מספר המדרגים בסוגריים קטנים ליד הציון
+                        st.markdown(f"""
+                            <div class='p-box'>
+                                <span>{p['name']} ({p['age']})</span>
+                                <span style='text-align:left;'>
+                                    <span style='color:#94a3b8; font-size:10px; margin-left:3px;'>({p['raters']})</span>
+                                    <span style='color:#22c55e; font-size:11px; font-weight:bold;'>{p['f']:.1f}</span>
+                                </span>
+                            </div>
+                        """, unsafe_allow_html=True)
                     with c_swp:
                         if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
@@ -126,16 +140,15 @@ with tab1:
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    # הצגת מאזן רמה וגיל ממוצע
                     st.markdown(f"<div class='team-stats'><b>רמה: {avg_f:.1f}</b><br>גיל ממוצע: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
 # --- 5. טאב מאגר ---
 with tab2:
     st.subheader("ניהול המאגר")
     for i, p in enumerate(st.session_state.players):
-        score, birth = get_player_stats(p['name'])
+        score, birth, count = get_player_stats(p['name'])
         age = 2026 - birth
-        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({age}) | ציון: {score:.1f}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({age}) | ציון: {score:.1f} <small>({count} מדרגים)</small></div>", unsafe_allow_html=True)
         ce, cd = st.columns([4, 1])
         with ce:
             if st.button(f"📝 עריכה", key=f"db_ed_{i}", use_container_width=True):
@@ -159,11 +172,12 @@ with tab3:
         roles_list = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         f_roles = st.pills("תפקידים:", roles_list, selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
         
-        f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
+        f_rate = st.radio("ציון עצמי (איך אתה מעריך את עצמך):", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
-        st.write("דירוג עמיתים:")
+        st.write("דירוג עמיתים (דרג שחקנים אחרים):")
         
+        # קבלת הדירוגים שניתנו על ידי המשתמש הנוכחי
         peer_res = {}
         exist_p = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
         other_p = [p for p in st.session_state.players if p['name'] != f_name]
