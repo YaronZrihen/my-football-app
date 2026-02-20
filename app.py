@@ -54,7 +54,6 @@ def safe_get_json(val):
     if isinstance(val, dict): return val
     try:
         cleaned = str(val).strip()
-        # תיקון למקרה שהערך הוא מחרוזת של JSON בתוך מחרוזת
         if cleaned.startswith("'") and cleaned.endswith("'"):
             cleaned = cleaned[1:-1]
         return json.loads(cleaned) if cleaned else {}
@@ -80,22 +79,16 @@ def get_player_stats(name):
     
     self_rating = float(p.get('rating', 5.0))
     
-    # חישוב דירוגי עמיתים - סריקה של כל המאגר
     peer_scores = []
     for voter in st.session_state.players:
-        # שחקן לא יכול לדרג את עצמו כ"עמית" (זה כבר ב-self_rating)
-        if voter['name'] == name:
-            continue
-            
+        if voter['name'] == name: continue
         voter_ratings = safe_get_json(voter.get('peer_ratings', '{}'))
-        # בודקים אם המדרג אכן נתן ציון לשחקן הזה
-        if name in voter_ratings and voter_ratings[name] is not None:
+        # סופרים רק אם השחקן קיים ב-JSON והערך שלו אינו "ללא" (0)
+        if name in voter_ratings and voter_ratings[name] > 0:
             peer_scores.append(float(voter_ratings[name]))
     
     count = len(peer_scores)
     avg_peer = sum(peer_scores) / count if count > 0 else 0
-    
-    # שקלול: אם יש מדרגים, הציון הוא ממוצע של הדירוג העצמי וממוצע העמיתים
     final_score = (self_rating + avg_peer) / 2 if count > 0 else self_rating
     
     return final_score, int(p.get('birth_year', 1995)), count
@@ -116,12 +109,7 @@ with tab1:
             pool = []
             for n in selected_names:
                 score, year, raters_count = get_player_stats(n)
-                pool.append({
-                    'name': n, 
-                    'f': score, 
-                    'age': 2026 - year, 
-                    'raters': raters_count
-                })
+                pool.append({'name': n, 'f': score, 'age': 2026 - year, 'raters': raters_count})
             
             pool.sort(key=lambda x: x['f'], reverse=True)
             t1, t2 = [], []
@@ -191,30 +179,37 @@ with tab3:
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
-        st.write("דירוג עמיתים (דרג אחרים):")
+        st.write("דירוג עמיתים (בחר 0 אם אינך מכיר את השחקן):")
         
         peer_res = {}
         exist_p = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
         other_p = [p for p in st.session_state.players if p['name'] != f_name]
         
         for op in other_p:
-            current_val = int(exist_p.get(op['name'], 5))
+            # הוספת אפשרות 0 כברירת מחדל שאומרת "לא דורג"
+            options = [0] + list(range(1, 11))
+            current_val = int(exist_p.get(op['name'], 0))
+            
             peer_res[op['name']] = st.radio(
                 f"דרג את {op['name']}:", 
-                range(1, 11), 
-                index=current_val - 1, 
+                options, 
+                index=options.index(current_val), 
+                format_func=lambda x: "ללא" if x == 0 else str(x),
                 horizontal=True, 
                 key=f"pr_{f_name}_{op['name']}"
             )
 
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
+                # סינון: שומרים ב-JSON רק את מי שקיבל ציון מעל 0
+                filtered_peer_ratings = {k: v for k, v in peer_res.items() if v > 0}
+                
                 new_entry = {
                     "name": f_name, 
                     "birth_year": f_year, 
                     "rating": f_rate, 
                     "roles": ",".join(f_roles), 
-                    "peer_ratings": json.dumps(peer_res)
+                    "peer_ratings": json.dumps(filtered_peer_ratings)
                 }
                 if p_data:
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)
