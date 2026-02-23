@@ -27,8 +27,8 @@ st.markdown("""
     
     .team-stats {
         background: #1e293b; border-top: 2px solid #4a5568; padding: 8px;
-        margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
-        color: #94a3b8;
+        margin-top: 5px; font-size: 13px; text-align: center; border-radius: 0 0 8px 8px;
+        color: #94a3b8; line-height: 1.4;
     }
 
     [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
@@ -48,7 +48,7 @@ st.markdown("""
 # --- 2. פונקציות עזר ---
 def safe_split(val):
     if not val or pd.isna(val): return []
-    return str(val).split(',')
+    return [s.strip() for s in str(val).split(',') if s.strip()]
 
 def safe_get_json(val):
     if not val or pd.isna(val): return {}
@@ -98,7 +98,7 @@ if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שח�
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# --- 4. חלוקה (כולל מאזנים) ---
+# --- 4. טאב חלוקה ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
@@ -136,23 +136,16 @@ with tab1:
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                             else: st.session_state.t1.append(st.session_state.t2.pop(i))
                             st.rerun()
-                
-                # החזרת המאזנים בתחתית כל קבוצה
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"""
-                        <div class='team-stats'>
-                            <b style='color:#e2e8f0;'>רמה: {avg_f:.1f}</b><br>
-                            גיל ממוצע: {avg_a:.1f}
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='team-stats'><b style='color:#e2e8f0;'>רמה: {avg_f:.1f}</b><br>גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
-# --- 5. מאגר ---
+# --- 5. טאב מאגר ---
 with tab2:
     for i, p in enumerate(st.session_state.players):
         score, birth, count = get_player_stats(p['name'])
-        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({2026-birth}) | ציון: {score:.1f} ({count})</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='database-card'><b>{p['name']}</b> ({2026-birth}) | {score:.1f} ({count})</div>", unsafe_allow_html=True)
         ce, cd = st.columns([4, 1])
         with ce:
             if st.button("📝 עריכה", key=f"db_ed_{i}", use_container_width=True):
@@ -161,7 +154,7 @@ with tab2:
             if st.button("🗑️", key=f"db_dl_{i}", use_container_width=True):
                 st.session_state.players.pop(i); save_to_gsheets(); st.rerun()
 
-# --- 6. עדכון/הרשמה ---
+# --- 6. טאב עדכון/הרשמה ---
 with tab3:
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
@@ -170,7 +163,11 @@ with tab3:
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
-        f_roles = st.pills("תפקידים:", ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"], selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
+        
+        roles_options = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
+        valid_default = [r for r in safe_split(p_data.get('roles', '')) if r in roles_options] if p_data else []
+        f_roles = st.pills("תפקידים:", roles_options, selection_mode="multi", default=valid_default)
+        
         f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
         
         st.write("---")
