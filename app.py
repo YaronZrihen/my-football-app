@@ -9,25 +9,15 @@ st.set_page_config(page_title="ניהול כדורגל וולפסון חולון
 
 st.markdown("""
     <style>
-    /* הסתרת תפריט המערכת והגדרות */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
-    
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
     .block-container { padding-top: 50px !important; }
-    
-    .wolfson-title { 
-        font-size: 28px !important; text-align: center !important; color: #60a5fa; 
-        font-weight: bold; margin-bottom: 30px;
-    }
-    
-    .player-card {
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 12px;
-        padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
+    .wolfson-title { font-size: 28px !important; text-align: center !important; color: #60a5fa; font-weight: bold; margin-bottom: 30px; }
+    .player-card { background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .card-header { font-size: 20px; font-weight: bold; color: #f8fafc; border-bottom: 1px solid #4a5568; padding-bottom: 8px; margin-bottom: 10px; }
     .card-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
     .label { color: #94a3b8; }
@@ -35,18 +25,8 @@ st.markdown("""
     .highlight-value { color: #22c55e; font-weight: bold; }
     .roles-tag { background: #4a5568; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
     .date-footer { font-size: 11px; color: #64748b; margin-top: 10px; border-top: 1px dotted #4a5568; padding-top: 5px; }
-
-    .p-box {
-        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
-        margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
-    }
-    
-    /* עיצוב המאזנים שהחזרתי */
-    .team-stats {
-        background: #1e293b; border-top: 2px solid #4a5568; padding: 10px;
-        margin-top: 10px; font-size: 14px; text-align: center; border-radius: 0 0 8px 8px;
-        color: #e2e8f0; line-height: 1.5;
-    }
+    .p-box { background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px; }
+    .team-stats { background: #1e293b; border-top: 2px solid #4a5568; padding: 10px; margin-top: 10px; font-size: 14px; text-align: center; border-radius: 0 0 8px 8px; color: #e2e8f0; line-height: 1.5; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -139,13 +119,7 @@ with tab1:
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
                     avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    # החזרת המאזן המפורט
-                    st.markdown(f"""
-                        <div class='team-stats'>
-                            <b style='color:#60a5fa;'>רמה ממוצעת: {avg_f:.1f}</b><br>
-                            גיל ממוצע: {avg_a:.1f}
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='team-stats'><b style='color:#60a5fa;'>רמה ממוצעת: {avg_f:.1f}</b><br>גיל ממוצע: {avg_a:.1f}</div>", unsafe_allow_html=True)
 
 # --- 5. מאגר ---
 with tab2:
@@ -181,7 +155,13 @@ with tab3:
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
         f_year = st.number_input("שנת לידה:", 1900, 2026, int(p_data['birth_year']) if p_data and 'birth_year' in p_data else 1900)
-        f_roles = st.pills("תפקידים:", ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"], selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
+        
+        # --- תיקון השגיאה כאן ---
+        roles_options = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
+        saved_roles = safe_split(p_data.get('roles', '')) if p_data else []
+        valid_default = [r for r in saved_roles if r in roles_options]
+        f_roles = st.pills("תפקידים:", roles_options, selection_mode="multi", default=valid_default)
+        
         f_rate = st.radio("ציון עצמי:", [0]+list(range(1,11)), index=int(p_data.get('rating',0)) if p_data else 0, format_func=lambda x: "ללא" if x==0 else str(x), horizontal=True)
         
         st.write("---")
