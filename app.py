@@ -78,7 +78,7 @@ def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
     if not p: return 5.0, 1900, 0
     
-    self_rating = float(p.get('rating', 5.0))
+    self_rating = float(p.get('rating', 0))
     peer_scores = []
     for voter in st.session_state.players:
         if voter['name'] == name: continue
@@ -88,11 +88,18 @@ def get_player_stats(name):
     
     count = len(peer_scores)
     avg_peer = sum(peer_scores) / count if count > 0 else 0
-    final_score = (self_rating + avg_peer) / 2 if count > 0 else self_rating
     
-    # שימוש ב-1900 כברירת מחדל אם אין שנת לידה
-    birth_year = int(p.get('birth_year', 1900))
-    return final_score, birth_year, count
+    # חישוב ציון סופי:
+    if self_rating > 0 and count > 0:
+        final_score = (self_rating + avg_peer) / 2
+    elif self_rating > 0:
+        final_score = self_rating
+    elif count > 0:
+        final_score = avg_peer
+    else:
+        final_score = 5.0 # ברירת מחדל אם אין שום דירוג
+        
+    return final_score, int(p.get('birth_year', 1900)), count
 
 # --- 3. ניווט ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
@@ -164,16 +171,22 @@ with tab3:
     
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
-        
-        # הגדרת שנת לידה: אם השחקן קיים משתמשים בשנה שלו, אם חדש - 1900
-        current_birth = int(p_data['birth_year']) if p_data and 'birth_year' in p_data else 1900
-        f_year = st.number_input("שנת לידה:", 1900, 2026, current_birth)
+        f_year = st.number_input("שנת לידה:", 1900, 2026, int(p_data['birth_year']) if p_data and 'birth_year' in p_data else 1900)
         
         roles_options = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
         valid_default = [r for r in safe_split(p_data.get('roles', '')) if r in roles_options] if p_data else []
         f_roles = st.pills("תפקידים:", roles_options, selection_mode="multi", default=valid_default)
         
-        f_rate = st.radio("ציון עצמי:", range(1, 11), index=int(p_data.get('rating', 5))-1 if p_data else 4, horizontal=True)
+        # עדכון ציון עצמי לכלול אפשרות "ללא" (0)
+        self_rate_options = [0] + list(range(1, 11))
+        current_self_rate = int(p_data.get('rating', 0)) if p_data else 0
+        f_rate = st.radio(
+            "ציון עצמי:", 
+            self_rate_options, 
+            index=self_rate_options.index(current_self_rate) if current_self_rate in self_rate_options else 0,
+            format_func=lambda x: "ללא" if x == 0 else str(x),
+            horizontal=True
+        )
         
         st.write("---")
         st.write("דירוג עמיתים (0 = ללא):")
