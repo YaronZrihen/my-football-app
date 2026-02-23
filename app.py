@@ -28,6 +28,7 @@ st.markdown("""
     .team-stats {
         background: #1e293b; border-top: 2px solid #4a5568; padding: 8px;
         margin-top: 5px; font-size: 12px; text-align: center; border-radius: 0 0 8px 8px;
+        color: #94a3b8;
     }
 
     [data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
@@ -97,7 +98,7 @@ if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שח�
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# --- 4. חלוקה ---
+# --- 4. חלוקה (כולל מאזנים) ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
@@ -124,12 +125,28 @@ with tab1:
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([3, 1])
                     with c_txt:
-                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span><small style='color:#94a3b8;'>({p['raters']})</small> <b style='color:#22c55e;'>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <div class='p-box'>
+                                <span>{p['name']} ({p['age']})</span>
+                                <span><small style='color:#94a3b8;'>({p['raters']})</small> <b style='color:#22c55e;'>{p['f']:.1f}</b></span>
+                            </div>
+                        """, unsafe_allow_html=True)
                     with c_swp:
                         if st.button("החלף", key=f"sw_{data['pfx']}_{i}"):
                             if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
                             else: st.session_state.t1.append(st.session_state.t2.pop(i))
                             st.rerun()
+                
+                # החזרת המאזנים בתחתית כל קבוצה
+                if data['team']:
+                    avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
+                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
+                    st.markdown(f"""
+                        <div class='team-stats'>
+                            <b style='color:#e2e8f0;'>רמה: {avg_f:.1f}</b><br>
+                            גיל ממוצע: {avg_a:.1f}
+                        </div>
+                    """, unsafe_allow_html=True)
 
 # --- 5. מאגר ---
 with tab2:
@@ -163,11 +180,9 @@ with tab3:
         exist_p = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
         other_p = [p for p in st.session_state.players if p['name'] != f_name]
         
-        # לולאת הדירוג עם מפתח ייחודי למניעת השגיאה
         for idx, op in enumerate(other_p):
             options = [0] + list(range(1, 11))
             val = int(exist_p.get(op['name'], 0))
-            # המפתח כולל את האינדקס וגם את שם השחקן הנוכחי כדי למנוע כפילויות
             peer_res[op['name']] = st.radio(
                 f"דרג את {op['name']}:", 
                 options, 
