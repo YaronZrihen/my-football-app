@@ -76,7 +76,7 @@ def save_to_gsheets():
 
 def get_player_stats(name):
     p = next((x for x in st.session_state.players if x['name'] == name), None)
-    if not p: return 5.0, 1995, 0
+    if not p: return 5.0, 1900, 0
     
     self_rating = float(p.get('rating', 5.0))
     peer_scores = []
@@ -90,7 +90,9 @@ def get_player_stats(name):
     avg_peer = sum(peer_scores) / count if count > 0 else 0
     final_score = (self_rating + avg_peer) / 2 if count > 0 else self_rating
     
-    return final_score, int(p.get('birth_year', 1995)), count
+    # שימוש ב-1900 כברירת מחדל אם אין שנת לידה
+    birth_year = int(p.get('birth_year', 1900))
+    return final_score, birth_year, count
 
 # --- 3. ניווט ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
@@ -162,7 +164,10 @@ with tab3:
     
     with st.form("edit_form"):
         f_name = st.text_input("שם מלא:", value=p_data['name'] if p_data else "")
-        f_year = st.number_input("שנת לידה:", 1950, 2026, int(p_data['birth_year']) if p_data else 1995)
+        
+        # הגדרת שנת לידה: אם השחקן קיים משתמשים בשנה שלו, אם חדש - 1900
+        current_birth = int(p_data['birth_year']) if p_data and 'birth_year' in p_data else 1900
+        f_year = st.number_input("שנת לידה:", 1900, 2026, current_birth)
         
         roles_options = ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"]
         valid_default = [r for r in safe_split(p_data.get('roles', '')) if r in roles_options] if p_data else []
