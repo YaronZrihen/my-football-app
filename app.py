@@ -27,6 +27,7 @@ st.markdown("""
     .date-footer { font-size: 11px; color: #64748b; margin-top: 10px; border-top: 1px dotted #4a5568; padding-top: 5px; }
     .p-box { background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px; }
     .team-stats { background: #1e293b; border-top: 2px solid #4a5568; padding: 10px; margin-top: 10px; font-size: 14px; text-align: center; border-radius: 0 0 8px 8px; color: #e2e8f0; line-height: 1.5; }
+    .stat-badge { background: #3b82f6; color: white; padding: 2px 10px; border-radius: 20px; font-size: 14px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -92,8 +93,16 @@ tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", 
 
 # --- 4. טאב חלוקה ---
 with tab1:
+    total_in_db = len(st.session_state.players)
+    st.markdown(f"<p style='color:#94a3b8;'>סה\"כ שחקנים רשומים במאגר: <b>{total_in_db}</b></p>", unsafe_allow_html=True)
+    
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
+    
+    # המונה שהיה חסר:
+    num_selected = len(selected_names) if selected_names else 0
+    st.markdown(f"<p>נבחרו: <span class='stat-badge'>{num_selected}</span> שחקנים</p>", unsafe_allow_html=True)
+    
     if st.button("חלק קבוצות 🚀", use_container_width=True):
         if selected_names:
             pool = []
@@ -107,12 +116,13 @@ with tab1:
                 if i % 4 == 0 or i % 4 == 3: t1.append(p)
                 else: t2.append(p)
             st.session_state.t1, st.session_state.t2 = t1, t2
+            
     if 't1' in st.session_state and selected_names:
         col_w, col_b = st.columns(2)
         teams_data = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
         for col, data in zip([col_w, col_b], teams_data):
             with col:
-                st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']} ({len(data['team'])})</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
                     c_txt, c_swp = st.columns([3, 1])
                     with c_txt: st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span><b>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
@@ -127,6 +137,7 @@ with tab1:
 
 # --- 5. טאב מאגר ---
 with tab2:
+    st.markdown(f"<p>סה\"כ שחקנים במאגר: <b>{len(st.session_state.players)}</b></p>", unsafe_allow_html=True)
     for i, p in enumerate(st.session_state.players):
         s = get_player_full_stats(p)
         roles = safe_split(p.get('roles', ''))
@@ -138,7 +149,7 @@ with tab2:
             if st.button("🗑️", key=f"del_{i}", use_container_width=True): st.session_state.players.pop(i); save_to_gsheets(); st.rerun()
         st.write("---")
 
-# --- 6. טאב עדכון/הרשמה (כולל חסימת כפילויות) ---
+# --- 6. טאב עדכון/הרשמה ---
 with tab3:
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
@@ -164,11 +175,9 @@ with tab3:
             if not f_name:
                 st.error("חובה להזין שם שחקן!")
             else:
-                # --- בדיקת כפילויות ---
                 existing_names = [p['name'] for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else None)]
-                
                 if f_name in existing_names:
-                    st.error(f"שגיאה: השם '{f_name}' כבר קיים במאגר. אנא השתמש בשם אחר או הוסף שם משפחה.")
+                    st.error(f"שגיאה: השם '{f_name}' כבר קיים.")
                 else:
                     now = datetime.now().strftime("%d/%m/%Y %H:%M")
                     new_entry = {
