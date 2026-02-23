@@ -40,6 +40,13 @@ st.markdown("""
         background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
         margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
     }
+    
+    /* עיצוב המאזנים שהחזרתי */
+    .team-stats {
+        background: #1e293b; border-top: 2px solid #4a5568; padding: 10px;
+        margin-top: 10px; font-size: 14px; text-align: center; border-radius: 0 0 8px 8px;
+        color: #e2e8f0; line-height: 1.5;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -113,6 +120,7 @@ with tab1:
                 if i % 4 == 0 or i % 4 == 3: t1.append(p)
                 else: t2.append(p)
             st.session_state.t1, st.session_state.t2 = t1, t2
+    
     if 't1' in st.session_state and selected_names:
         col_w, col_b = st.columns(2)
         teams_data = [{"team": st.session_state.t1, "label": "⚪ לבן", "pfx": "w"}, {"team": st.session_state.t2, "label": "⚫ שחור", "pfx": "b"}]
@@ -120,10 +128,24 @@ with tab1:
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span><b>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
+                    c_txt, c_swp = st.columns([3, 1])
+                    with c_txt:
+                        st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span><b>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
+                    with c_swp:
+                        if st.button("🔄", key=f"sw_{data['pfx']}_{i}"):
+                            if data['pfx'] == "w": st.session_state.t2.append(st.session_state.t1.pop(i))
+                            else: st.session_state.t1.append(st.session_state.t2.pop(i))
+                            st.rerun()
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div style='text-align:center; font-size:12px; color:#94a3b8;'>ממוצע: {avg_f:.1f}</div>", unsafe_allow_html=True)
+                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
+                    # החזרת המאזן המפורט
+                    st.markdown(f"""
+                        <div class='team-stats'>
+                            <b style='color:#60a5fa;'>רמה ממוצעת: {avg_f:.1f}</b><br>
+                            גיל ממוצע: {avg_a:.1f}
+                        </div>
+                    """, unsafe_allow_html=True)
 
 # --- 5. מאגר ---
 with tab2:
@@ -165,7 +187,6 @@ with tab3:
         st.write("---")
         st.write("דירוג עמיתים:")
         peer_res = {}
-        # כאן הוחזר החלק של דירוג העמיתים שחסר לך
         other_p = [p for p in st.session_state.players if p['name'] != (f_name or choice)]
         for idx, op in enumerate(other_p):
             val = int(safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}').get(op['name'], 0))
