@@ -11,6 +11,12 @@ st.markdown("""
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
     .block-container { padding: 5px !important; }
+    
+    /* כותרת עדינה למעלה */
+    .sub-header-top { 
+        font-size: 14px; text-align: center; color: #94a3b8; margin-bottom: 5px; font-weight: 300;
+    }
+    
     .main-title { font-size: 22px !important; text-align: center !important; font-weight: bold; margin-bottom: 15px; color: #60a5fa; }
     
     .database-card { 
@@ -42,6 +48,9 @@ st.markdown("""
         font-size: 13px !important;
         height: auto !important;
     }
+    
+    /* מרווח בתחתית */
+    .bottom-spacer { margin-bottom: 150px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,7 +98,6 @@ def get_player_stats(name):
     count = len(peer_scores)
     avg_peer = sum(peer_scores) / count if count > 0 else 0
     
-    # חישוב ציון סופי:
     if self_rating > 0 and count > 0:
         final_score = (self_rating + avg_peer) / 2
     elif self_rating > 0:
@@ -97,14 +105,17 @@ def get_player_stats(name):
     elif count > 0:
         final_score = avg_peer
     else:
-        final_score = 5.0 # ברירת מחדל אם אין שום דירוג
+        final_score = 5.0
         
     return final_score, int(p.get('birth_year', 1900)), count
 
-# --- 3. ניווט ---
+# --- 3. ניווט וכותרות ---
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
 
+# הוספת הכותרות בראש העמוד
+st.markdown("<div class='sub-header-top'>ניהול קבוצת כדורגל וולפסון חולון</div>", unsafe_allow_html=True)
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
+
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
 # --- 4. טאב חלוקה ---
@@ -177,16 +188,9 @@ with tab3:
         valid_default = [r for r in safe_split(p_data.get('roles', '')) if r in roles_options] if p_data else []
         f_roles = st.pills("תפקידים:", roles_options, selection_mode="multi", default=valid_default)
         
-        # עדכון ציון עצמי לכלול אפשרות "ללא" (0)
         self_rate_options = [0] + list(range(1, 11))
         current_self_rate = int(p_data.get('rating', 0)) if p_data else 0
-        f_rate = st.radio(
-            "ציון עצמי:", 
-            self_rate_options, 
-            index=self_rate_options.index(current_self_rate) if current_self_rate in self_rate_options else 0,
-            format_func=lambda x: "ללא" if x == 0 else str(x),
-            horizontal=True
-        )
+        f_rate = st.radio("ציון עצמי:", self_rate_options, index=self_rate_options.index(current_self_rate) if current_self_rate in self_rate_options else 0, format_func=lambda x: "ללא" if x == 0 else str(x), horizontal=True)
         
         st.write("---")
         st.write("דירוג עמיתים (0 = ללא):")
@@ -198,14 +202,7 @@ with tab3:
         for idx, op in enumerate(other_p):
             options = [0] + list(range(1, 11))
             val = int(exist_p.get(op['name'], 0))
-            peer_res[op['name']] = st.radio(
-                f"דרג את {op['name']}:", 
-                options, 
-                index=options.index(val) if val in options else 0,
-                format_func=lambda x: "ללא" if x == 0 else str(x),
-                horizontal=True,
-                key=f"radio_{choice}_{op['name']}_{idx}"
-            )
+            peer_res[op['name']] = st.radio(f"דרג את {op['name']}:", options, index=options.index(val) if val in options else 0, format_func=lambda x: "ללא" if x == 0 else str(x), horizontal=True, key=f"radio_{choice}_{op['name']}_{idx}")
 
         if st.form_submit_button("שמור ✅", use_container_width=True):
             if f_name:
@@ -216,3 +213,6 @@ with tab3:
                     st.session_state.players[idx] = new_entry
                 else: st.session_state.players.append(new_entry)
                 save_to_gsheets(); st.session_state.edit_name = f_name; st.rerun()
+
+# --- 7. מרווח תחתון ---
+st.markdown("<div class='bottom-spacer'></div>", unsafe_allow_html=True)
