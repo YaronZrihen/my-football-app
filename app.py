@@ -9,7 +9,7 @@ st.set_page_config(page_title="ניהול כדורגל וולפסון חולון
 
 st.markdown("""
     <style>
-    /* הסתרת תפריט ההגדרות של Streamlit (ההמבורגר) והערת ה-Deploy */
+    /* הסתרת תפריט המערכת והגדרות */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -17,8 +17,6 @@ st.markdown("""
     
     .stApp { background-color: #1a1c23; color: #e2e8f0; direction: rtl; text-align: right; }
     h1, h2, h3, p, label, span, div { text-align: right !important; direction: rtl; }
-    
-    /* מרווח עליון */
     .block-container { padding-top: 50px !important; }
     
     .wolfson-title { 
@@ -26,7 +24,6 @@ st.markdown("""
         font-weight: bold; margin-bottom: 30px;
     }
     
-    /* עיצוב כרטיס שחקן */
     .player-card {
         background: #2d3748; border: 1px solid #4a5568; border-radius: 12px;
         padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -38,10 +35,15 @@ st.markdown("""
     .highlight-value { color: #22c55e; font-weight: bold; }
     .roles-tag { background: #4a5568; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
     .date-footer { font-size: 11px; color: #64748b; margin-top: 10px; border-top: 1px dotted #4a5568; padding-top: 5px; }
+
+    .p-box {
+        background: #2d3748; border: 1px solid #4a5568; border-radius: 4px; padding: 2px 8px;
+        margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; min-height: 35px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. פונקציות עזר (לוגיקה קיימת ללא שינוי) ---
+# --- 2. פונקציות עזר ---
 def safe_split(val):
     if not val or pd.isna(val): return []
     return [s.strip() for s in str(val).split(',') if s.strip()]
@@ -88,13 +90,13 @@ def get_player_full_stats(p):
     else: final_score = 5.0
     return {"final": round(final_score, 1), "self": self_rating if self_rating > 0 else "ללא", "peer": round(avg_peer, 1) if avg_peer > 0 else "ללא", "age": age, "count": count}
 
-# --- 3. כותרת האתר ---
+# --- 3. כותרת ---
 st.markdown("<div class='wolfson-title'>ניהול קבוצת כדורגל וולפסון חולון</div>", unsafe_allow_html=True)
 
 if 'edit_name' not in st.session_state: st.session_state.edit_name = "🆕 שחקן חדש"
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
 
-# --- 4. טאב חלוקה ---
+# --- 4. חלוקה ---
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players])
     selected_names = st.pills("מי הגיע?", all_names, selection_mode="multi", key="p_selection")
@@ -118,13 +120,12 @@ with tab1:
             with col:
                 st.markdown(f"<p style='text-align:center; font-weight:bold;'>{data['label']}</p>", unsafe_allow_html=True)
                 for i, p in enumerate(data['team']):
-                    st.markdown(f"<div style='background:#2d3748; padding:5px; border-radius:4px; margin-bottom:2px; display:flex; justify-content:space-between;'><span>{p['name']} ({p['age']})</span><span><b>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='p-box'><span>{p['name']} ({p['age']})</span><span><b>{p['f']:.1f}</b></span></div>", unsafe_allow_html=True)
                 if data['team']:
                     avg_f = sum(p['f'] for p in data['team']) / len(data['team'])
-                    avg_a = sum(p['age'] for p in data['team']) / len(data['team'])
-                    st.markdown(f"<div style='background: #1e293b; padding: 8px; margin-top: 5px; font-size: 13px; text-align: center; border-radius: 4px; color: #94a3b8;'>רמה: {avg_f:.1f} | גיל: {avg_a:.1f}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:center; font-size:12px; color:#94a3b8;'>ממוצע: {avg_f:.1f}</div>", unsafe_allow_html=True)
 
-# --- 5. טאב מאגר (כרטיסי שחקן) ---
+# --- 5. מאגר ---
 with tab2:
     for i, p in enumerate(st.session_state.players):
         s = get_player_full_stats(p)
@@ -140,20 +141,16 @@ with tab2:
             <div class='date-footer'>רישום: {p.get('created_at','-')} | עדכון: {p.get('updated_at','-')}</div>
         </div>
         """, unsafe_allow_html=True)
-        
         c1, c2, c3 = st.columns([2, 2, 1])
         with c1:
             if st.button("📝 עריכה", key=f"edit_{i}", use_container_width=True):
-                st.session_state.edit_name = p['name']
-                st.rerun()
+                st.session_state.edit_name = p['name']; st.rerun()
         with c3:
             if st.button("🗑️", key=f"del_{i}", use_container_width=True):
-                st.session_state.players.pop(i)
-                save_to_gsheets()
-                st.rerun()
+                st.session_state.players.pop(i); save_to_gsheets(); st.rerun()
         st.write("---")
 
-# --- 6. טאב עדכון/הרשמה ---
+# --- 6. עדכון/הרשמה ---
 with tab3:
     all_n = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
     choice = st.selectbox("בחר שחקן:", all_n, index=all_n.index(st.session_state.edit_name) if st.session_state.edit_name in all_n else 0)
@@ -165,20 +162,29 @@ with tab3:
         f_roles = st.pills("תפקידים:", ["שוער", "בלם", "מגן", "קשר", "כנף", "חלוץ"], selection_mode="multi", default=safe_split(p_data.get('roles', '')) if p_data else [])
         f_rate = st.radio("ציון עצמי:", [0]+list(range(1,11)), index=int(p_data.get('rating',0)) if p_data else 0, format_func=lambda x: "ללא" if x==0 else str(x), horizontal=True)
         
+        st.write("---")
+        st.write("דירוג עמיתים:")
+        peer_res = {}
+        # כאן הוחזר החלק של דירוג העמיתים שחסר לך
+        other_p = [p for p in st.session_state.players if p['name'] != (f_name or choice)]
+        for idx, op in enumerate(other_p):
+            val = int(safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}').get(op['name'], 0))
+            peer_res[op['name']] = st.radio(f"דרג את {op['name']}:", [0]+list(range(1,11)), index=val if val <=10 else 0, format_func=lambda x: "ללא" if x==0 else str(x), horizontal=True, key=f"r_{choice}_{idx}")
+        
         if st.form_submit_button("שמור שינויים ✅", use_container_width=True):
             if f_name:
                 now = datetime.now().strftime("%d/%m/%Y %H:%M")
-                new_entry = {"name": f_name, "birth_year": f_year, "rating": f_rate, "roles": ",".join(f_roles), "updated_at": now}
+                new_entry = {
+                    "name": f_name, "birth_year": f_year, "rating": f_rate, 
+                    "roles": ",".join(f_roles), "updated_at": now,
+                    "peer_ratings": json.dumps({k: v for k, v in peer_res.items() if v > 0})
+                }
                 if p_data:
                     new_entry["created_at"] = p_data.get('created_at', now)
-                    new_entry["peer_ratings"] = p_data.get('peer_ratings', '{}')
                     st.session_state.players[next(i for i, x in enumerate(st.session_state.players) if x['name'] == choice)] = new_entry
                 else:
                     new_entry["created_at"] = now
-                    new_entry["peer_ratings"] = "{}"
                     st.session_state.players.append(new_entry)
-                save_to_gsheets()
-                st.rerun()
+                save_to_gsheets(); st.rerun()
 
-# מרווח למטה
 for _ in range(5): st.write("")
