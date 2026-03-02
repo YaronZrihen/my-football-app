@@ -3,72 +3,55 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime, date
 
-# הגדרת דף - ממורכז (ביטול WIDE)
-st.set_page_config(page_title="ניהול כדורגל וולפסון", layout="centered")
+# הגדרות דף - ממורכז (לא WIDE)
+st.set_page_config(page_title="ניהול כדורגל וולפסון")
 
-# CSS חזק ל-RTL ויישור לימין
+# CSS להצמדת הכל לימין (RTL)
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
-    h1, h2, h3, h4, p, label, .stSelectbox, .stTextInput, .stNumberInput { 
-        text-align: right !important; direction: rtl !important; 
-    }
+    .block-container { max-width: 800px; }
+    h1, h2, h3, h4, p, label, .stSelectbox, .stTextInput { text-align: right !important; direction: rtl !important; }
     .stTabs [data-baseweb="tab-list"] { direction: rtl; justify-content: flex-end; }
-    .stButton button { width: 100%; border-radius: 8px; font-weight: bold; }
-    .arrival-row { 
-        background: #f8fafc; padding: 12px; border-radius: 10px; 
-        margin-bottom: 8px; border-right: 5px solid #3b82f6; 
-        display: flex; justify-content: space-between; align-items: center;
-        flex-direction: row-reverse; border: 1px solid #e2e8f0;
-    }
-    .team-box { background: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 10px; }
+    .team-card { background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# חיבור לגליון
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def load_sheet(name, expected_cols):
+def load_sheet(name, cols):
     try:
         df = conn.read(worksheet=name, ttl="0")
-        if df is None or df.empty: return pd.DataFrame(columns=expected_cols)
         df.columns = [c.strip() for c in df.columns]
         return df.dropna(subset=['name'])
-    except:
-        return pd.DataFrame(columns=expected_cols)
+    except: return pd.DataFrame(columns=cols)
 
-# --- ניהול זיכרון (Session State) ---
-if 'players_list' not in st.session_state:
-    df_p = load_sheet("Football_DB", ["name", "rating"])
-    st.session_state.players_list = df_p.to_dict('records')
+# טעינת המאגר
+df_p = load_sheet("Football_DB", ["name", "rating"])
+st.session_state.players = df_p.to_dict('records')
 
-if 'final_teams' not in st.session_state:
-    st.session_state.final_teams = None
+st.markdown("<h1 style='text-align: center;'>⚽ וולפסון - ניהול משחק</h1>", unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align: center; color: #1e40af;'>⚽ וולפסון - ניהול משחק</h1>", unsafe_allow_html=True)
+# יצירת הטאבים - שמות פשוטים למניעת שגיאות
+t_reg, t_split, t_pay, t_db = st.tabs(["📝 רישום", "🏃 חלוקה", "💰 תשלומים", "⚙️ מאגר"])
 
-# יצירת הטאבים
-tab_reg, tab_split, tab_pay, tab_db = st.tabs(["📝 רישום", "🏃 חלוקה", "💰 תשלומים", "⚙️ מאגר"])
-
-# --- טאב 1: רישום ---
-with tab_reg:
-    m_date = st.date_input("תאריך המחזור:", date.today()).strftime("%d/%m/%Y")
+# --- טאב רישום ---
+with t_reg:
+    m_date = st.date_input("תאריך:", date.today()).strftime("%d/%m/%Y")
     h_df = load_sheet("arrivals_history", ["name", "match_date", "paid", "temp_rating"])
-    daily = h_df[h_df['match_date'] == m_date]
     
     col_a, col_b = st.columns(2)
     with col_a:
-        with st.form("reg_member", clear_on_submit=True):
-            st.write("**רישום מהמאגר**")
-            u = st.selectbox("בחר שחקן:", [""] + sorted([p['name'] for p in st.session_state.players_list]))
+        with st.form("f1", clear_on_submit=True):
+            st.write("שחקן מאגר")
+            u = st.selectbox("בחר:", [""] + sorted([p['name'] for p in st.session_state.players]))
             if st.form_submit_button("רשום ✅") and u:
-                if not ((h_df['name'] == u) & (h_df['match_date'] == m_date)).any():
-                    new = pd.DataFrame([{"name": u, "match_date": m_date, "paid": "לא"}])
-                    conn.update(worksheet="arrivals_history", data=pd.concat([h_df, new], ignore_index=True))
-                    st.rerun()
+                new = pd.DataFrame([{"name": u, "match_date": m_date, "paid": "לא"}])
+                conn.update(worksheet="arrivals_history", data=pd.concat([h_df, new], ignore_index=True))
+                st.rerun()
     with col_b:
-        with st.form("reg_guest", clear_on_submit=True):
-            st.write("**רישום אורח**")
+        with st.form("f2", clear_on_submit=True):
+            st.write("אורח")
             g = st.text_input("שם:")
             r = st.slider("רמה:", 1, 10, 5)
             if st.form_submit_button("הוסף ⭐") and g:
@@ -76,85 +59,71 @@ with tab_reg:
                 conn.update(worksheet="arrivals_history", data=pd.concat([h_df, new], ignore_index=True))
                 st.rerun()
 
-    st.subheader(f"רשימת הגעה ({len(daily)})")
+    daily = h_df[h_df['match_date'] == m_date]
+    st.subheader(f"רשומים ({len(daily)})")
     for i, row in daily.iterrows():
-        c_t, c_d = st.columns([0.8, 0.2])
-        c_t.markdown(f"<div class='arrival-row'><span>{row['name']}</span></div>", unsafe_allow_html=True)
-        if c_d.button("❌", key=f"del_{i}"):
+        c_n, c_d = st.columns([0.8, 0.2])
+        c_n.info(row['name'])
+        if c_d.button("❌", key=f"d_{i}"):
             conn.update(worksheet="arrivals_history", data=h_df.drop(i))
             st.rerun()
 
-# --- טאב 2: חלוקת קבוצות (המנגנון המלא) ---
-with tab_split:
-    st.subheader("חלוקת קבוצות מאוזנת")
-    
+# --- טאב חלוקה (החלק שביקשת להחזיר) ---
+with t_split:
+    st.subheader("חלוקת קבוצות")
     if not daily.empty:
-        if st.button("בצע חלוקה אוטומטית 🚀"):
-            # יצירת רשימת שחקנים עם ציונים
+        if st.button("בצע חלוקה 🚀", use_container_width=True):
             pool = []
             for n in daily['name']:
                 if n.startswith("⭐"):
                     rating = daily[daily.name == n].iloc[0].get('temp_rating', 5)
                 else:
-                    # מושך ציון מהמאגר
-                    p_info = next((x for x in st.session_state.players_list if x['name'] == n), {'rating': 5})
-                    rating = p_info.get('rating', 5)
-                pool.append({'name': n, 'rating': float(rating)})
+                    p_data = next((x for x in st.session_state.players if x['name'] == n), {'rating': 5})
+                    rating = p_data.get('rating', 5)
+                pool.append({'n': n, 'r': float(rating)})
             
-            # אלגוריתם חלוקה (Snake Draft)
-            pool.sort(key=lambda x: x['rating'], reverse=True)
-            team_white = []
-            team_black = []
-            for i, p in enumerate(pool):
-                if i % 2 == 0: team_white.append(p)
-                else: team_black.append(p)
+            # מיון וחלוקת זיג-זג (Snake)
+            pool.sort(key=lambda x: x['r'], reverse=True)
+            t1 = pool[::2]
+            t2 = pool[1::2]
             
-            # שמירה לזיכרון של Streamlit
-            st.session_state.final_teams = {"white": team_white, "black": team_black}
-
-        # תצוגת הקבוצות (אם נוצרו)
-        if st.session_state.final_teams:
-            tw = st.session_state.final_teams["white"]
-            tb = st.session_state.final_teams["black"]
-            
-            c_white, c_black = st.columns(2)
-            with c_white:
-                st.markdown("<div class='team-box'>", unsafe_allow_html=True)
-                st.markdown("### ⚪ קבוצה לבנה")
-                for p in tw: st.write(f"🏃 {p['name']} (ציון: {p['rating']})")
-                st.markdown(f"**סה\"כ רמה:** {sum(p['rating'] for p in tw)}")
+            c_left, c_right = st.columns(2)
+            with c_left:
+                st.markdown("<div class='team-card'>", unsafe_allow_html=True)
+                st.markdown("### ⚪ לבנים")
+                for p in t1: st.write(f"🏃 {p['n']} ({p['r']})")
+                st.markdown(f"**סה\"כ רמה:** {sum(p['r'] for p in t1)}")
                 st.markdown("</div>", unsafe_allow_html=True)
-            with c_black:
-                st.markdown("<div class='team-box'>", unsafe_allow_html=True)
-                st.markdown("### ⚫ קבוצה שחורה")
-                for p in tb: st.write(f"🏃 {p['name']} (ציון: {p['rating']})")
-                st.markdown(f"**סה\"כ רמה:** {sum(p['rating'] for p in tb)}")
+            with c_right:
+                st.markdown("<div class='team-card'>", unsafe_allow_html=True)
+                st.markdown("### ⚫ שחורים")
+                for p in t2: st.write(f"🏃 {p['n']} ({p['r']})")
+                st.markdown(f"**סה\"כ רמה:** {sum(p['r'] for p in t2)}")
                 st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.warning("אין מספיק שחקנים רשומים לחלוקה.")
+        st.write("אין שחקנים רשומים היום.")
 
-# --- טאב 3: תשלומים ---
-with tab_pay:
-    st.subheader("ניהול תשלומים")
+# --- טאב תשלומים ---
+with t_pay:
+    st.subheader("תשלומים")
     unpaid = daily[daily['paid'] != "כן"]
     if not unpaid.empty:
-        to_pay = st.selectbox("מי שילם?", [""] + unpaid['name'].tolist())
-        if st.button("עדכן ששולם") and to_pay:
-            full = load_sheet("arrivals_history", [])
-            full.loc[(full.name == to_pay) & (full.match_date == m_date), 'paid'] = "כן"
-            conn.update(worksheet="arrivals_history", data=full)
+        p_pay = st.selectbox("מי שילם?", [""] + unpaid['name'].tolist())
+        if st.button("עדכן שולם"):
+            all_h = load_sheet("arrivals_history", [])
+            all_h.loc[(all_h.name == p_pay) & (all_h.match_date == m_date), 'paid'] = "כן"
+            conn.update(worksheet="arrivals_history", data=all_h)
             st.rerun()
-    st.dataframe(daily[['name', 'paid']], use_container_width=True)
+    st.table(daily[['name', 'paid']])
 
-# --- טאב 4: מאגר ---
-with tab_db:
-    st.subheader("ניהול מאגר שחקנים")
-    st.dataframe(pd.DataFrame(st.session_state.players_list), use_container_width=True)
-    with st.form("new_player"):
-        nn = st.text_input("שם שחקן חדש:")
-        nr = st.slider("דירוג:", 1.0, 10.0, 5.0)
+# --- טאב מאגר ---
+with t_db:
+    st.subheader("מאגר שחקנים")
+    st.dataframe(df_p, use_container_width=True)
+    with st.form("f3"):
+        nn = st.text_input("שם חדש:")
+        nr = st.slider("דירוג:", 1, 10, 5)
         if st.form_submit_button("הוסף למאגר"):
-            df_all = load_sheet("Football_DB", ["name", "rating"])
             new_row = pd.DataFrame([{"name": nn, "rating": nr}])
-            conn.update(worksheet="Football_DB", data=pd.concat([df_all, new_row], ignore_index=True))
+            conn.update(worksheet="Football_DB", data=pd.concat([df_p, new_row], ignore_index=True))
             st.rerun()
