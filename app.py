@@ -6,10 +6,10 @@ import pandas as pd
 import json
 from datetime import datetime, date
 
-# הגדרת דף - ללא wide כדי שיהיה ממורכז
+# ביטול ה-Wide כדי שיהיה ממורכז ונוח לעין
 st.set_page_config(page_title="ניהול כדורגל וולפסון")
 
-# CSS חזק לתיקון כיוון התצוגה (RTL) וצמצום רוחב
+# CSS להצמדת הכל לימין (RTL)
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
@@ -18,7 +18,6 @@ st.markdown("""
         text-align: right !important; direction: rtl !important; 
     }
     .stTabs [data-baseweb="tab-list"] { direction: rtl; justify-content: flex-end; }
-    .stButton button { width: 100%; }
     .arrival-row { 
         background: #f0f2f6; padding: 15px; border-radius: 10px; 
         margin-bottom: 10px; border-right: 5px solid #3b82f6; 
@@ -39,15 +38,14 @@ def load_sheet(name, expected_cols):
     except:
         return pd.DataFrame(columns=expected_cols)
 
-# טעינת המאגר (Football_DB)
+# טעינת המאגר מ-Football_DB
 df_players = load_sheet("Football_DB", ["name", "birth_year", "rating", "peer_ratings"])
 st.session_state.players = df_players.to_dict('records')
 
 st.markdown("<h1 style='text-align: center; color: #3b82f6;'>⚽ וולפסון - ניהול משחק</h1>", unsafe_allow_html=True)
 
-# הגדרת הטאבים עם שמות ברורים למניעת שגיאות
+# הגדרת הטאבים - אלו השמות שנשתמש בהם בהמשך
 tab_reg, tab_split, tab_pay, tab_db = st.tabs(["📝 רישום", "🏃 חלוקה", "💰 תשלומים", "⚙️ מאגר"])
-
 
 
 
@@ -59,8 +57,8 @@ with tab_reg:
     m_date = st.date_input("תאריך המחזור:", date.today()).strftime("%d/%m/%Y")
     h_df = load_sheet("arrivals_history", ["name", "phone", "arrival_time", "match_date", "paid", "temp_rating"])
     
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.subheader("שחקן מאגר")
         with st.form("f_reg"):
             u_name = st.selectbox("בחר שם:", [""] + sorted([p['name'] for p in st.session_state.players]))
@@ -70,7 +68,7 @@ with tab_reg:
                     conn.update(worksheet="arrivals_history", data=pd.concat([h_df, new], ignore_index=True))
                     st.rerun()
 
-    with col2:
+    with c2:
         st.subheader("שחקן אורח")
         with st.form("f_guest"):
             g_name = st.text_input("שם האורח:")
@@ -90,6 +88,7 @@ with tab_reg:
         if c_btn.button("❌", key=f"del_{i}"):
             conn.update(worksheet="arrivals_history", data=h_df.drop(i))
             st.rerun()
+
 
 
             
@@ -195,6 +194,7 @@ with t_db:
             st.success("המאגר עודכן!")
             st.cache_data.clear()
             st.rerun()
+
 
 
 
