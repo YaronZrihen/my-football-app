@@ -6,10 +6,10 @@ import pandas as pd
 import json
 from datetime import datetime, date
 
-# ביטול ה-Wide כדי שיהיה ממורכז ונוח לעין
+# הגדרת דף ממורכז (מבטל את ה-WIDE)
 st.set_page_config(page_title="ניהול כדורגל וולפסון")
 
-# CSS להצמדת הכל לימין (RTL)
+# CSS להצמדת הכל לימין (RTL) ומרכוז המערכת
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
@@ -38,15 +38,14 @@ def load_sheet(name, expected_cols):
     except:
         return pd.DataFrame(columns=expected_cols)
 
-# טעינת המאגר מ-Football_DB
+# טעינת המאגר
 df_players = load_sheet("Football_DB", ["name", "birth_year", "rating", "peer_ratings"])
 st.session_state.players = df_players.to_dict('records')
 
 st.markdown("<h1 style='text-align: center; color: #3b82f6;'>⚽ וולפסון - ניהול משחק</h1>", unsafe_allow_html=True)
 
-# הגדרת הטאבים - אלו השמות שנשתמש בהם בהמשך
+# יצירת הטאבים - אלו השמות שחייבים להישאר קבועים
 tab_reg, tab_split, tab_pay, tab_db = st.tabs(["📝 רישום", "🏃 חלוקה", "💰 תשלומים", "⚙️ מאגר"])
-
 
 
 
@@ -140,6 +139,7 @@ with tab_db:
             st.success("השחקן נוסף בהצלחה!")
             st.rerun()
             
+            
 
 
             
@@ -194,6 +194,7 @@ with t_db:
             st.success("המאגר עודכן!")
             st.cache_data.clear()
             st.rerun()
+
 
 
 
