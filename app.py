@@ -361,9 +361,11 @@ with tab1:
                     for i, player in enumerate(team):
                         c_txt, c_swp = st.columns([4, 1])
                         with c_txt:
+                            pnum = next((p.get('player_num','') for p in st.session_state.players if p['name']==player['name']), '')
+                            pnum_tag = f"<span style='color:#60a5fa;font-size:11px;'>#{pnum} </span>" if pnum else ""
                             st.markdown(
                                 f"<div class='p-box'>"
-                                f"<span>{player['name']} ({player['age']})</span>"
+                                f"<span>{pnum_tag}{player['name']} ({player['age']})</span>"
                                 f"<span class='p-score'>{player['score']:.1f}</span>"
                                 f"</div>",
                                 unsafe_allow_html=True
@@ -421,9 +423,11 @@ with tab2:
 
             is_active = str(p.get('active', 'True')) == 'True'
             active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>לא פעיל</span>"
+            pnum = p.get('player_num', '')
+            pnum_str = f"<span style='color:#60a5fa; font-size:12px; margin-left:6px;'>#{pnum}</span>" if pnum else ""
             st.markdown(
                 f"<div class='database-card'>"
-                f"<div class='card-name'>{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span> {active_badge}</div>"
+                f"<div class='card-name'>{pnum_str}{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span> {active_badge}</div>"
                 f"<div class='card-detail'>"
                 f"ציון: <span style='color:{score_color}; font-weight:bold;'>{score:.1f}</span> "
                 f"| תפקידים: {roles}"
@@ -432,11 +436,14 @@ with tab2:
                 unsafe_allow_html=True
             )
 
-            ce, ct, cd = st.columns([3, 1, 1])
+            st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
+            ce, gap, ct, cd = st.columns([3, 0.15, 1, 1])
             with ce:
                 if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
                     st.session_state.edit_name = p['name']
                     st.rerun()
+            with gap:
+                st.empty()
             with ct:
                 toggle_label = "🔴" if is_active else "🟢"
                 if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
@@ -476,6 +483,14 @@ with tab3:
             "שם מלא *",
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
+        )
+        # מספר שחקן — אוטומטי לשחקן חדש, ניתן לעריכה
+        existing_numbers = [int(p.get('player_num', 0)) for p in st.session_state.players if str(p.get('player_num', '')).isdigit()]
+        next_num = max(existing_numbers) + 1 if existing_numbers else 1
+        f_player_num = st.number_input(
+            "מספר שחקן *",
+            min_value=1, max_value=999,
+            value=int(p_data.get('player_num', next_num)) if p_data and str(p_data.get('player_num', '')).isdigit() else next_num,
         )
         f_active = st.toggle(
             "שחקן פעיל",
@@ -539,12 +554,23 @@ with tab3:
                 errors.append("שם מלא")
             if not f_roles:
                 errors.append("תפקידים")
+            if not f_rate_str:
+                errors.append("ציון עצמי")
+            # בדיקת כפילות מספר שחקן
+            dup_num = any(
+                str(p.get('player_num', '')) == str(f_player_num)
+                and p['name'] != (p_data['name'] if p_data else "")
+                for p in st.session_state.players
+            )
+            if dup_num:
+                errors.append(f"מספר שחקן {f_player_num} כבר תפוס")
             if errors:
-                st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
+                st.error(f"❌ שגיאה: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
                 new_entry = {
                     "name": f_name.strip(),
+                    "player_num": f_player_num,
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
