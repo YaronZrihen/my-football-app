@@ -724,13 +724,8 @@ with tab1:
         st.markdown(f"<p style='color:{color}; font-weight:bold;'>נבחרו: {count} שחקנים</p>",
                     unsafe_allow_html=True)
 
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            divide_clicked = st.button("חלק קבוצות 🚀", use_container_width=True,
-                                       disabled=count < 2)
-        with col_btn2:
-            reshuffle_clicked = st.button("ערבב מחדש 🔀", use_container_width=True,
-                                          disabled=count < 2)
+        divide_clicked = st.button("חלק קבוצות 🚀", use_container_width=True, disabled=count < 2)
+        reshuffle_clicked = st.button("ערבב מחדש 🔀", use_container_width=True, disabled=count < 2)
 
         if divide_clicked or reshuffle_clicked:
             if selected_names:
@@ -751,83 +746,53 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            # בניית HTML קומפקטי לסלולאר
+            # תצוגת קבוצות קומפקטית עם כפתורי החלפה
             t1 = st.session_state.t1
             t2 = st.session_state.t2
-
-            def player_rows(team, team_key):
-                rows = ""
-                for i, p in enumerate(team):
-                    pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
-                    pnum_tag = f"<span style='color:#60a5fa;font-size:10px;'>#{pnum}</span> " if pnum else ""
-                    swap_key = f"sw_{team_key}_{i}"
-                    rows += (
-                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                        f"background:#1e293b;border-radius:5px;padding:4px 6px;margin-bottom:3px;gap:4px;'>"
-                        f"<span style='font-size:12px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;'>"
-                        f"{pnum_tag}{p['name']} "
-                        f"<span style='color:#64748b;font-size:10px;'>({p['age']})</span></span>"
-                        f"<span style='color:#22c55e;font-size:11px;font-weight:bold;white-space:nowrap;'>{p['score']:.1f}</span>"
-                        f"<button onclick='swapPlayer(&quot;{team_key}&quot;,{i})' "
-                        f"style='background:#334155;border:none;border-radius:4px;color:white;"
-                        f"font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;line-height:1;'>🔄</button>"
-                        f"</div>"
-                    )
-                return rows
-
             avg1 = balance_score(t1)
             avg2 = balance_score(t2)
             age1 = sum(p['age'] for p in t1)/len(t1) if t1 else 0
             age2 = sum(p['age'] for p in t2)/len(t2) if t2 else 0
 
-            teams_html = f"""
-<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;direction:rtl;'>
-  <div style='background:#1e3a5f;border-radius:8px 8px 0 0;overflow:hidden;'>
-    <div style='background:#1e3a5f;padding:7px 10px;text-align:center;font-weight:bold;font-size:13px;'>
-      ⚪ לבן ({len(t1)})
-    </div>
-    <div style='padding:6px;'>
-      {player_rows(t1, 't1')}
-    </div>
-    <div style='background:#0f172a;padding:6px;text-align:center;font-size:11px;border-top:1px solid #334155;'>
-      <b>רמה: {avg1:.1f}</b> | גיל: {age1:.1f}
-    </div>
-  </div>
-  <div style='background:#3a1e1e;border-radius:8px 8px 0 0;overflow:hidden;'>
-    <div style='background:#3a1e1e;padding:7px 10px;text-align:center;font-weight:bold;font-size:13px;'>
-      ⚫ שחור ({len(t2)})
-    </div>
-    <div style='padding:6px;'>
-      {player_rows(t2, 't2')}
-    </div>
-    <div style='background:#0f172a;padding:6px;text-align:center;font-size:11px;border-top:1px solid #334155;'>
-      <b>רמה: {avg2:.1f}</b> | גיל: {age2:.1f}
-    </div>
-  </div>
-</div>
-<script>
-function swapPlayer(teamKey, idx) {{
-  var url = new URL(window.parent.location.href);
-  url.searchParams.set('swap', 'sw_' + teamKey + '_' + idx);
-  window.parent.location.href = url.toString();
-}}
-</script>
-"""
-            st.markdown(teams_html, unsafe_allow_html=True)
+            # כותרות קבוצות
+            h1, h2 = st.columns(2)
+            with h1:
+                st.markdown(f"<div class='team-header'>⚪ לבן ({len(t1)})<br><small style='font-weight:normal;font-size:11px;'>רמה {avg1:.1f} | גיל {age1:.1f}</small></div>", unsafe_allow_html=True)
+            with h2:
+                st.markdown(f"<div class='team-header' style='background:#3a1e1e;'>⚫ שחור ({len(t2)})<br><small style='font-weight:normal;font-size:11px;'>רמה {avg2:.1f} | גיל {age2:.1f}</small></div>", unsafe_allow_html=True)
 
-            # swap handler — דרך query params
-            swap_param = st.query_params.get("swap", "")
-            if swap_param:
-                parts = swap_param.split("_")
-                if len(parts) == 3:
-                    _, tk, idx = parts
-                    idx = int(idx)
-                    if tk == "t1" and idx < len(st.session_state.t1):
-                        st.session_state.t2.append(st.session_state.t1.pop(idx))
-                    elif tk == "t2" and idx < len(st.session_state.t2):
-                        st.session_state.t1.append(st.session_state.t2.pop(idx))
-                st.query_params.clear()
-                st.rerun()
+            # שחקנים בשתי עמודות
+            max_len = max(len(t1), len(t2))
+            for i in range(max_len):
+                c1, c2 = st.columns(2)
+                # עמודה לבן
+                with c1:
+                    if i < len(t1):
+                        p = t1[i]
+                        pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
+                        pnum_s = f"#{pnum} " if pnum else ""
+                        cc1, cc2 = st.columns([5, 1])
+                        with cc1:
+                            st.markdown(f"<div class='p-box' style='font-size:11px;padding:3px 6px;'><span>{pnum_s}{p['name']}<span style='color:#64748b;'> ({p['age']})</span></span><span class='p-score'>{p['score']:.1f}</span></div>", unsafe_allow_html=True)
+                        with cc2:
+                            if st.button("🔄", key=f"sw_t1_{i}"):
+                                st.session_state.t2.append(st.session_state.t1.pop(i))
+                                st.rerun()
+                # עמודה שחור
+                with c2:
+                    if i < len(t2):
+                        p = t2[i]
+                        pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
+                        pnum_s = f"#{pnum} " if pnum else ""
+                        cc1, cc2 = st.columns([5, 1])
+                        with cc1:
+                            st.markdown(f"<div class='p-box' style='font-size:11px;padding:3px 6px;'><span>{pnum_s}{p['name']}<span style='color:#64748b;'> ({p['age']})</span></span><span class='p-score'>{p['score']:.1f}</span></div>", unsafe_allow_html=True)
+                        with cc2:
+                            if st.button("🔄", key=f"sw_t2_{i}"):
+                                st.session_state.t1.append(st.session_state.t2.pop(i))
+                                st.rerun()
+
+
 
             # כפתור מגרש
             if st.button("🏟️ הצג מגרש", use_container_width=True):
