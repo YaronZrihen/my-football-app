@@ -424,11 +424,10 @@ with tab2:
             and (show_inactive or is_player_active(p))
         ]
 
-        # מיון לפי ציון
+        # מיון לפי שם פרטי (אות ראשונה)
         filtered_with_scores = sorted(
             filtered,
-            key=lambda p: get_player_score(p),
-            reverse=True
+            key=lambda p: p['name'].strip().split()[0] if p.get('name') else ''
         )
 
         for i, p in enumerate(filtered_with_scores):
@@ -532,10 +531,11 @@ with tab3:
         )
 
         # ציון עצמי
+        existing_rating = str(int(p_data['rating'])) if p_data and str(p_data.get('rating','')).replace('.','').isdigit() and int(float(p_data.get('rating',0))) > 0 else None
         f_rate_str = st.pills(
             "ציון עצמי (1-10) *",
             options=[str(i) for i in range(1, 11)],
-            default=str(int(p_data.get('rating', 5)) if p_data else 5),
+            default=existing_rating,
             selection_mode="single",
             key="self_rate_pills",
         )
@@ -561,10 +561,12 @@ with tab3:
         if other_players:
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
+                    peer_val = exist_peers.get(op['name'])
+                    peer_default = str(int(float(peer_val))) if peer_val and str(peer_val).replace('.','').isdigit() and int(float(peer_val)) > 0 else None
                     peer_str = st.pills(
                         f"{op['name']} *",
                         options=[str(i) for i in range(1, 11)],
-                        default=str(int(exist_peers.get(op['name'], 0))) if exist_peers.get(op['name']) else None,
+                        default=peer_default,
                         selection_mode="single",
                         key=f"pr_{op['name']}",
                     )
