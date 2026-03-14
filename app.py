@@ -299,13 +299,24 @@ def load_players() -> list:
         return []
 
 
-def _update_win_points(winners: list, losers: list, all_players: list):
-    """הוסף נקודת ניצחון לשחקני הקבוצה המנצחת."""
-    for name in winners:
-        idx = next((i for i, p in enumerate(all_players) if p["name"] == name), None)
-        if idx is not None:
-            cur = int(all_players[idx].get("win_points", 0) or 0)
-            all_players[idx]["win_points"] = cur + 1
+def _recalc_win_points(all_players: list, all_history: list):
+    """
+    חישוב מחדש של נקודות ניצחון לכל שחקן מההיסטוריה המלאה.
+    מונע כפילויות — תמיד מחשב מאפס.
+    """
+    # אפס את כל הנקודות
+    for p in all_players:
+        p["win_points"] = 0
+    # חשב מחדש מכל המשחקים
+    for game in all_history:
+        winner = game.get("winner", "")
+        if not winner:
+            continue
+        winners = game.get("team1", []) if winner == "לבן" else game.get("team2", [])
+        for name in winners:
+            idx = next((i for i, p in enumerate(all_players) if p["name"] == name), None)
+            if idx is not None:
+                all_players[idx]["win_points"] = int(all_players[idx].get("win_points", 0) or 0) + 1
 
 
 def save_history_to_gsheets(history: list) -> bool:
@@ -580,10 +591,12 @@ with tab2:
             pnum = p.get('player_num', '')
             pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
 
+            wins = int(p.get("win_points", 0) or 0)
+            wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}</span>" if wins > 0 else ""
             st.markdown(
                 f"<div class='database-card'>"
                 f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
-                f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge}</div>"
+                f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge} {wins_str}</div>"
                 f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}</div>"
                 f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
                 f"{score_badge('אישי', self_rating)}"
@@ -873,8 +886,7 @@ with tab4:
                              type="primary" if winner == "לבן" else "secondary"):
                     history[gi]["winner"] = "לבן"
                     st.session_state.game_history = history
-                    # עדכן נקודות לשחקני לבן
-                    _update_win_points(t1, t2, st.session_state.players)
+                    _recalc_win_points(st.session_state.players, history)
                     save_history_to_gsheets(history)
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
@@ -883,7 +895,7 @@ with tab4:
                              type="primary" if winner == "שחור" else "secondary"):
                     history[gi]["winner"] = "שחור"
                     st.session_state.game_history = history
-                    _update_win_points(t2, t1, st.session_state.players)
+                    _recalc_win_points(st.session_state.players, history)
                     save_history_to_gsheets(history)
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
@@ -891,7 +903,9 @@ with tab4:
                 if winner and st.button("↩️ בטל תוצאה", key=f"win3_{gi}", use_container_width=True):
                     history[gi]["winner"] = ""
                     st.session_state.game_history = history
+                    _recalc_win_points(st.session_state.players, history)
                     save_history_to_gsheets(history)
+                    save_to_gsheets(st.session_state.players)
                     st.rerun()
 
             st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
