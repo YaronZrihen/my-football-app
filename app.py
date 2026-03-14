@@ -92,20 +92,34 @@ div[data-testid="stPills"] button[aria-checked="true"] {
     border: 1px solid #93c5fd !important;
 }
 
-/* ===== כוכבי דירוג ===== */
+/* ===== דירוג מספרי ===== */
+div[data-testid="stRadio"] > div {
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+}
 div[data-testid="stRadio"] label {
-    font-size: 20px !important;
-    color: #4a5568;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 6px !important;
+    padding: 4px 8px !important;
+    font-size: 14px !important;
+    color: #cbd5e1 !important;
     cursor: pointer;
-    padding: 0 1px !important;
-    transition: color 0.1s;
+    transition: all 0.15s;
+    min-width: 32px;
+    text-align: center;
 }
-div[data-testid="stRadio"] input:checked ~ div {
-    color: #f59e0b !important;
+div[data-testid="stRadio"] label:hover {
+    background: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: white !important;
 }
-/* הסתרת נקודות הרדיו עצמן */
-div[data-testid="stRadio"] input[type="radio"] { display: none !important; }
-div[data-testid="stRadio"] > div { gap: 0px !important; flex-wrap: nowrap !important; }
+div[data-testid="stRadio"] input[type="radio"]:checked + div {
+    background: #3b82f6 !important;
+    border-color: #60a5fa !important;
+    color: white !important;
+    font-weight: bold !important;
+}
 
 
 .stButton button {
@@ -156,21 +170,17 @@ def safe_get_json(val) -> dict:
 
 def star_rating_widget(label: str, key: str, default: int = 5) -> int:
     """
-    רכיב כוכבים (1–10) ללא תלויות חיצוניות.
-    משתמש ב-st.pills עם סמלי כוכבים — עובד בתוך ומחוץ לטופס.
+    רכיב דירוג מספרי (1–10) — כפתורי radio בשורה אופקית.
     """
-    options = [str(i) for i in range(1, 11)]
-    labels  = ["⭐1","⭐2","⭐3","⭐4","⭐5","⭐6","⭐7","⭐8","⭐9","⭐10"]
     st.markdown(f"<span style='font-size:14px; color:#cbd5e1;'>{label}</span>",
                 unsafe_allow_html=True)
     chosen = st.radio(
         label,
-        options=options,
+        options=list(range(1, 11)),
         index=default - 1,
         horizontal=True,
         key=key,
         label_visibility="collapsed",
-        format_func=lambda x: f"{'★' * int(x)}",
     )
     return int(chosen)
 
