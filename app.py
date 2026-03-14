@@ -100,6 +100,17 @@ div[data-testid="stPills"] button[aria-checked="true"] {
     transition: all 0.2s;
 }
 
+/* ===== סליידר דירוג ===== */
+div[data-testid="stSlider"] {
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+div[data-testid="stSlider"] > div > div {
+    max-width: 100% !important;
+}
+
 /* ===== רספונסיבי למובייל ===== */
 @media (max-width: 480px) {
     .main-title { font-size: 20px; }
