@@ -478,9 +478,11 @@ with tab3:
 
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
 
-    # חישוב מספר שחקן אוטומטי מחוץ לטופס
-    existing_numbers = [int(p.get('player_num', 0)) for p in st.session_state.players if str(p.get('player_num', '')).isdigit()]
-    auto_num = int(p_data.get('player_num', 0)) if p_data and str(p_data.get('player_num', '')).isdigit() else (max(existing_numbers) + 1 if existing_numbers else 1)
+    # מספר שחקן רץ — לשחקן קיים: שומר את המספר שלו. לשחקן חדש: מספר רץ (len+1)
+    if p_data and str(p_data.get('player_num', '')).isdigit():
+        auto_num = int(p_data['player_num'])
+    else:
+        auto_num = len(st.session_state.players) + 1
 
     with st.form("edit_form", clear_on_submit=False):
         # שם מלא
