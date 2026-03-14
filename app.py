@@ -610,7 +610,7 @@ with tab3:
             options=["—"] + [str(i) for i in range(1, 11)],
             default=existing_rating if existing_rating else "—",
             selection_mode="single",
-            key="self_rate_pills",
+            key=f"self_rate_pills_{choice}",
         )
         f_rate = int(f_rate_str) if f_rate_str and f_rate_str != "—" else None
 
@@ -619,7 +619,7 @@ with tab3:
         f_active = st.toggle(
             "שחקן פעיל",
             value=is_player_active(p_data) if p_data else True,
-            key="form_active"
+            key=f"form_active_{choice}"
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -647,7 +647,7 @@ with tab3:
                         options=RATING_OPTIONS,
                         default=peer_default,
                         selection_mode="single",
-                        key=f"pr_{op['name']}",
+                        key=f"pr_{choice}_{op['name']}",
                     )
                     peer_res[op['name']] = int(peer_str) if peer_str and peer_str != "—" else None
         else:
