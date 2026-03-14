@@ -283,32 +283,47 @@ def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
 def build_field_html(t1: list, t2: list, players_data: list) -> str:
     """בונה HTML אינטראקטיבי של מגרש עם drag & drop לפי תפקידים."""
 
-    ROLE_POSITIONS = {
-        "שוער":       {"x": 50, "y": 88},
-        "בלם":        {"x": 50, "y": 73},
-        "מגן ימין":   {"x": 20, "y": 63},
-        "מגן שמאל":   {"x": 80, "y": 63},
-        "קשר אחורי":  {"x": 50, "y": 53},
-        "קשר קדמי":   {"x": 50, "y": 38},
-        "אגף ימין":   {"x": 15, "y": 43},
-        "אגף שמאל":   {"x": 85, "y": 43},
-        "חלוץ":       {"x": 50, "y": 22},
+    # עמדות לכל חצי מגרש
+    # t1 = לבן — חצי תחתון (y: 52-95), t2 = שחור — חצי עליון (y: 5-48)
+    ROLE_POS = {
+        "t1": {  # לבן — מגן תחתון, תוקף למעלה
+            "שוער":      {"x": 50, "y": 92},
+            "בלם":       {"x": 50, "y": 80},
+            "מגן ימין":  {"x": 22, "y": 74},
+            "מגן שמאל":  {"x": 78, "y": 74},
+            "קשר אחורי": {"x": 50, "y": 65},
+            "אגף ימין":  {"x": 15, "y": 60},
+            "אגף שמאל":  {"x": 85, "y": 60},
+            "קשר קדמי":  {"x": 50, "y": 56},
+            "חלוץ":      {"x": 50, "y": 53},
+        },
+        "t2": {  # שחור — מגן עליון, תוקף למטה (הפוך)
+            "שוער":      {"x": 50, "y": 8},
+            "בלם":       {"x": 50, "y": 20},
+            "מגן ימין":  {"x": 78, "y": 26},
+            "מגן שמאל":  {"x": 22, "y": 26},
+            "קשר אחורי": {"x": 50, "y": 35},
+            "אגף ימין":  {"x": 85, "y": 40},
+            "אגף שמאל":  {"x": 15, "y": 40},
+            "קשר קדמי":  {"x": 50, "y": 44},
+            "חלוץ":      {"x": 50, "y": 47},
+        }
     }
     ROLE_PRIORITY = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
 
-    def assign_positions(team, color):
-        """מיין שחקנים לפי תפקיד ראשי ופזר על המגרש."""
+    def assign_positions(team, color, side):
+        """מיין שחקנים לחצי המגרש המתאים."""
+        positions = ROLE_POS[side]
         assigned = []
         used_positions = set()
-        # מעבר ראשון — שחקן שיש לו תפקיד ספציפי
         for p in team:
             name = p['name']
             pd = next((x for x in players_data if x['name'] == name), {})
             roles = [r.strip() for r in str(pd.get('roles','')).split(',') if r.strip()]
             placed = False
             for role in roles:
-                if role in ROLE_POSITIONS and role not in used_positions:
-                    pos = ROLE_POSITIONS[role]
+                if role in positions and role not in used_positions:
+                    pos = positions[role]
                     assigned.append({"name": name, "x": pos["x"], "y": pos["y"], "role": role, "color": color, "score": p.get('score', 0)})
                     used_positions.add(role)
                     placed = True
@@ -316,24 +331,22 @@ def build_field_html(t1: list, t2: list, players_data: list) -> str:
             if not placed:
                 assigned.append({"name": name, "x": None, "y": None, "role": "?", "color": color, "score": p.get('score', 0)})
 
-        # מעבר שני — מי שנשאר ללא עמדה
         remaining_roles = [r for r in ROLE_PRIORITY if r not in used_positions]
         unplaced = [p for p in assigned if p["x"] is None]
         for i, p in enumerate(unplaced):
             if i < len(remaining_roles):
                 role = remaining_roles[i]
-                pos = ROLE_POSITIONS[role]
+                pos = positions[role]
                 p["x"] = pos["x"]
                 p["y"] = pos["y"]
                 p["role"] = role
             else:
-                # אם עודף שחקנים — פזר בשורה תחתונה
                 p["x"] = 10 + (i * 15) % 80
-                p["y"] = 95
+                p["y"] = 95 if side == "t1" else 5
         return assigned
 
-    team1_placed = assign_positions(t1, "#3b82f6")   # כחול = לבן
-    team2_placed = assign_positions(t2, "#ef4444")    # אדום = שחור
+    team1_placed = assign_positions(t1, "#4ade80", "t1")   # ירוק = לבן (חצי תחתון)
+    team2_placed = assign_positions(t2, "#f87171", "t2")   # אדום = שחור (חצי עליון)
 
     # בנה JSON לשחקנים
     import json
