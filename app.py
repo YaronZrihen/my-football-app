@@ -288,15 +288,27 @@ def get_connection():
     return st.connection("gsheets", type=GSheetsConnection)
 
 
-def load_players() -> list:
-    """טעינת שחקנים מ-Google Sheets."""
+def load_players(force: bool = False) -> list:
+    """טעינת שחקנים מ-Google Sheets — עם cache ידני ב-session_state."""
+    import time
+    now = time.time()
+    cache_ttl = 300  # 5 דקות
+
+    if not force:
+        last = st.session_state.get('_players_loaded_at', 0)
+        if now - last < cache_ttl and st.session_state.get('_players_cached'):
+            return st.session_state['_players_cached']
+
     try:
         conn = get_connection()
-        df = conn.read(ttl=300)  # cache ל-5 דקות
-        return df.dropna(subset=['name']).to_dict(orient='records')
+        df = conn.read(ttl=0)
+        players = df.dropna(subset=['name']).to_dict(orient='records')
+        st.session_state['_players_cached'] = players
+        st.session_state['_players_loaded_at'] = now
+        return players
     except Exception as e:
         st.warning(f"⚠️ שגיאה בטעינת נתונים: {e}")
-        return []
+        return st.session_state.get('_players_cached', [])
 
 
 def _recalc_win_points(all_players: list, all_history: list):
@@ -347,33 +359,47 @@ def save_history_to_gsheets(history: list) -> bool:
         return False
 
 
-def load_history_from_gsheets() -> list:
-    """טעינת היסטוריית משחקים מ-Google Sheets."""
+def load_history_from_gsheets(force: bool = False) -> list:
+    """טעינת היסטוריית משחקים — עם cache ידני ב-session_state."""
+    import time
+    now = time.time()
+    cache_ttl = 300
+
+    if not force:
+        last = st.session_state.get('_history_loaded_at', 0)
+        if now - last < cache_ttl and '_history_cached' in st.session_state:
+            return st.session_state['_history_cached']
+
     try:
         conn = get_connection()
-        df = conn.read(worksheet="history", ttl=300)
+        df = conn.read(worksheet="history", ttl=0)
         if df.empty:
-            return []
-        history = {}
-        for _, row in df.iterrows():
-            date = str(row.get("date", ""))
-            team = str(row.get("team", ""))
-            players = [p.strip() for p in str(row.get("players", "")).split(",") if p.strip()]
-            avg = float(row.get("avg_score", 0) or 0)
-            winner = str(row.get("winner", "") or "")
-            if date not in history:
-                history[date] = {"date": date, "team1": [], "team2": [], "avg1": 0, "avg2": 0, "winner": ""}
-            if team == "לבן":
-                history[date]["team1"] = players
-                history[date]["avg1"] = avg
-            else:
-                history[date]["team2"] = players
-                history[date]["avg2"] = avg
-            if winner:
-                history[date]["winner"] = winner
-        return sorted(history.values(), key=lambda x: x["date"], reverse=True)
-    except Exception:
-        return []
+            result = []
+        else:
+            history = {}
+            for _, row in df.iterrows():
+                date = str(row.get("date", ""))
+                team = str(row.get("team", ""))
+                players = [p.strip() for p in str(row.get("players", "")).split(",") if p.strip()]
+                avg = float(row.get("avg_score", 0) or 0)
+                winner = str(row.get("winner", "") or "")
+                if date not in history:
+                    history[date] = {"date": date, "team1": [], "team2": [], "avg1": 0, "avg2": 0, "winner": ""}
+                if team == "לבן":
+                    history[date]["team1"] = players
+                    history[date]["avg1"] = avg
+                else:
+                    history[date]["team2"] = players
+                    history[date]["avg2"] = avg
+                if winner:
+                    history[date]["winner"] = winner
+            result = sorted(history.values(), key=lambda x: x["date"], reverse=True)
+        st.session_state['_history_cached'] = result
+        st.session_state['_history_loaded_at'] = now
+        return result
+    except Exception as e:
+        st.warning(f"⚠️ שגיאה בטעינת היסטוריה: {e}")
+        return st.session_state.get('_history_cached', [])
 
 
 def save_to_gsheets(players: list) -> bool:
@@ -837,8 +863,7 @@ with tab4:
     col_r, col_pts = st.columns(2)
     with col_r:
         if st.button("🔄 רענן", use_container_width=True):
-            st.cache_data.clear()
-            st.session_state.game_history = load_history_from_gsheets()
+            st.session_state.game_history = load_history_from_gsheets(force=True)
             st.rerun()
 
     history = st.session_state.get('game_history', [])
