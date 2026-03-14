@@ -1,8 +1,8 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+from streamlit_star_rating import st_star_rating
 import pandas as pd
 import json
-import random
 
 # ============================================================
 # 1. הגדרות עמוד ו-CSS
@@ -465,10 +465,13 @@ with tab3:
             default=[r for r in existing_roles if r in ROLES]
         )
 
-        f_rate = st.select_slider(
-            "ציון עצמי (1-10):",
-            options=list(range(1, 11)),
-            value=int(p_data.get('rating', 5)) if p_data else 5
+        st.markdown("**ציון עצמי (1-10):**")
+        f_rate = st_star_rating(
+            label="",
+            maxValue=10,
+            defaultValue=int(p_data.get('rating', 5)) if p_data else 5,
+            key="self_rating",
+            emoticons=False,
         )
 
         # דירוג עמיתים — רק אם יש שחקנים אחרים
@@ -483,11 +486,13 @@ with tab3:
             # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
-                    peer_res[op['name']] = st.select_slider(
-                        f"{op['name']}:",
-                        options=list(range(1, 11)),
-                        value=int(exist_peers.get(op['name'], 5)),
-                        key=f"pr_{op['name']}"
+                    st.markdown(f"**{op['name']}:**")
+                    peer_res[op['name']] = st_star_rating(
+                        label="",
+                        maxValue=10,
+                        defaultValue=int(exist_peers.get(op['name'], 5)),
+                        key=f"pr_{op['name']}",
+                        emoticons=False,
                     )
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
