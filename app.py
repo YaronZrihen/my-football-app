@@ -500,9 +500,9 @@ with tab3:
             default=[r for r in existing_roles if r in ROLES]
         )
 
-        f_rate = st.select_slider(
+        f_rate = st.slider(
             "ציון עצמי (1-10):",
-            options=list(range(1, 11)),
+            min_value=1, max_value=10,
             value=int(p_data.get('rating', 5)) if p_data else 5,
         )
 
@@ -518,9 +518,9 @@ with tab3:
             # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
-                    peer_res[op['name']] = st.select_slider(
+                    peer_res[op['name']] = st.slider(
                         f"{op['name']}:",
-                        options=list(range(1, 11)),
+                        min_value=1, max_value=10,
                         value=int(exist_peers.get(op['name'], 5)),
                         key=f"pr_{op['name']}",
                     )
