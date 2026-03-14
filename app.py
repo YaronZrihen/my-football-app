@@ -281,251 +281,167 @@ def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
 
 
 def build_field_html(t1: list, t2: list, players_data: list) -> str:
-    """בונה HTML אינטראקטיבי של מגרש עם drag & drop לפי תפקידים."""
+    """מגרש אחד — שתי קבוצות, כל אחת על המגרש המלא, כפתור מיתוג."""
 
-    # עמדות לכל חצי מגרש
-    # t1 = לבן — חצי תחתון (y: 52-95), t2 = שחור — חצי עליון (y: 5-48)
-    ROLE_POS = {
-        "t1": {  # לבן — מגן תחתון, תוקף למעלה
-            "שוער":      {"x": 50, "y": 92},
-            "בלם":       {"x": 50, "y": 80},
-            "מגן ימין":  {"x": 22, "y": 74},
-            "מגן שמאל":  {"x": 78, "y": 74},
-            "קשר אחורי": {"x": 50, "y": 65},
-            "אגף ימין":  {"x": 15, "y": 60},
-            "אגף שמאל":  {"x": 85, "y": 60},
-            "קשר קדמי":  {"x": 50, "y": 56},
-            "חלוץ":      {"x": 50, "y": 53},
-        },
-        "t2": {  # שחור — מגן עליון, תוקף למטה (הפוך)
-            "שוער":      {"x": 50, "y": 8},
-            "בלם":       {"x": 50, "y": 20},
-            "מגן ימין":  {"x": 78, "y": 26},
-            "מגן שמאל":  {"x": 22, "y": 26},
-            "קשר אחורי": {"x": 50, "y": 35},
-            "אגף ימין":  {"x": 85, "y": 40},
-            "אגף שמאל":  {"x": 15, "y": 40},
-            "קשר קדמי":  {"x": 50, "y": 44},
-            "חלוץ":      {"x": 50, "y": 47},
-        }
+    ROLE_POSITIONS = {
+        "שוער":      {"x": 50, "y": 88},
+        "בלם":       {"x": 50, "y": 74},
+        "מגן ימין":  {"x": 22, "y": 66},
+        "מגן שמאל":  {"x": 78, "y": 66},
+        "קשר אחורי": {"x": 50, "y": 56},
+        "אגף ימין":  {"x": 14, "y": 50},
+        "אגף שמאל":  {"x": 86, "y": 50},
+        "קשר קדמי":  {"x": 50, "y": 40},
+        "חלוץ":      {"x": 50, "y": 18},
     }
-    ROLE_PRIORITY = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
+    ROLE_PRIORITY = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","אגף ימין","אגף שמאל","קשר קדמי","חלוץ"]
 
-    def assign_positions(team, color, side):
-        """מיין שחקנים לחצי המגרש המתאים."""
-        positions = ROLE_POS[side]
+    def assign_positions(team, color):
         assigned = []
-        used_positions = set()
+        used = set()
         for p in team:
             name = p['name']
             pd = next((x for x in players_data if x['name'] == name), {})
             roles = [r.strip() for r in str(pd.get('roles','')).split(',') if r.strip()]
             placed = False
             for role in roles:
-                if role in positions and role not in used_positions:
-                    pos = positions[role]
+                if role in ROLE_POSITIONS and role not in used:
+                    pos = ROLE_POSITIONS[role]
                     assigned.append({"name": name, "x": pos["x"], "y": pos["y"], "role": role, "color": color, "score": p.get('score', 0)})
-                    used_positions.add(role)
+                    used.add(role)
                     placed = True
                     break
             if not placed:
                 assigned.append({"name": name, "x": None, "y": None, "role": "?", "color": color, "score": p.get('score', 0)})
-
-        remaining_roles = [r for r in ROLE_PRIORITY if r not in used_positions]
+        remaining = [r for r in ROLE_PRIORITY if r not in used]
         unplaced = [p for p in assigned if p["x"] is None]
         for i, p in enumerate(unplaced):
-            if i < len(remaining_roles):
-                role = remaining_roles[i]
-                pos = positions[role]
-                p["x"] = pos["x"]
-                p["y"] = pos["y"]
-                p["role"] = role
+            if i < len(remaining):
+                pos = ROLE_POSITIONS[remaining[i]]
+                p["x"], p["y"], p["role"] = pos["x"], pos["y"], remaining[i]
             else:
                 p["x"] = 10 + (i * 15) % 80
-                p["y"] = 95 if side == "t1" else 5
+                p["y"] = 95
         return assigned
 
-    team1_placed = assign_positions(t1, "#4ade80", "t1")   # ירוק = לבן (חצי תחתון)
-    team2_placed = assign_positions(t2, "#f87171", "t2")   # אדום = שחור (חצי עליון)
-
-    # בנה JSON לשחקנים
     import json
-    players_json = json.dumps({"team1": team1_placed, "team2": team2_placed}, ensure_ascii=False)
+    t1_placed = assign_positions(t1, "#4ade80")   # ירוק = לבן
+    t2_placed = assign_positions(t2, "#f87171")   # אדום = שחור
+    all_json  = json.dumps({"t1": t1_placed, "t2": t2_placed}, ensure_ascii=False)
 
     html = f"""
-<div style="font-family:sans-serif; direction:rtl; padding:8px;">
-  <div style="display:flex; gap:8px; margin-bottom:8px; justify-content:center;">
-    <button onclick="toggleTeam(1)" id="btn1"
-      style="padding:6px 16px; border-radius:6px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:13px;">⚪ לבן</button>
-    <button onclick="toggleTeam(2)" id="btn2"
-      style="padding:6px 16px; border-radius:6px; border:none; background:#ef4444; color:white; cursor:pointer; font-size:13px;">⚫ שחור</button>
-    <button onclick="toggleTeam(0)" id="btn0"
-      style="padding:6px 16px; border-radius:6px; border:none; background:#4a5568; color:white; cursor:pointer; font-size:13px;">שתי קבוצות</button>
+<div style="font-family:sans-serif;direction:rtl;padding:8px;">
+  <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:center;">
+    <button onclick="show(1)" id="btn1"
+      style="padding:5px 14px;border-radius:6px;border:2px solid #4ade80;background:#4ade80;color:#111;cursor:pointer;font-size:12px;font-weight:bold;">⚪ לבן</button>
+    <button onclick="show(2)" id="btn2"
+      style="padding:5px 14px;border-radius:6px;border:2px solid #f87171;background:#f87171;color:#111;cursor:pointer;font-size:12px;font-weight:bold;">⚫ שחור</button>
+    <button onclick="show(0)" id="btn0"
+      style="padding:5px 14px;border-radius:6px;border:2px solid #94a3b8;background:#334155;color:white;cursor:pointer;font-size:12px;">שתי קבוצות</button>
   </div>
-  <div style="position:relative; width:100%; max-width:420px; margin:0 auto;">
-    <svg id="field" viewBox="0 0 420 560" style="width:100%; border-radius:8px; display:block;">
-      <!-- מגרש -->
-      <rect width="420" height="560" fill="#2d6a2d"/>
-      <!-- פסי דשא -->
-      <rect x="0" y="0" width="420" height="70" fill="#286228" opacity="0.5"/>
-      <rect x="0" y="140" width="420" height="70" fill="#286228" opacity="0.5"/>
-      <rect x="0" y="280" width="420" height="70" fill="#286228" opacity="0.5"/>
-      <rect x="0" y="420" width="420" height="70" fill="#286228" opacity="0.5"/>
-      <!-- קווים -->
-      <rect x="20" y="20" width="380" height="520" fill="none" stroke="white" stroke-width="2"/>
-      <line x1="20" y1="300" x2="400" y2="300" stroke="white" stroke-width="2"/>
-      <circle cx="210" cy="300" r="50" fill="none" stroke="white" stroke-width="2"/>
-      <circle cx="210" cy="300" r="3" fill="white"/>
-      <!-- שער עליון -->
-      <rect x="145" y="20" width="130" height="40" fill="none" stroke="white" stroke-width="2"/>
-      <rect x="170" y="20" width="80" height="20" fill="none" stroke="white" stroke-width="2"/>
-      <!-- שער תחתון -->
-      <rect x="145" y="500" width="130" height="40" fill="none" stroke="white" stroke-width="2"/>
-      <rect x="170" y="540" width="80" height="20" fill="none" stroke="white" stroke-width="2"/>
-      <!-- עיגולי שוער -->
-      <path d="M145,60 A65,65 0 0,1 275,60" fill="none" stroke="white" stroke-width="2"/>
-      <path d="M145,500 A65,65 0 0,0 275,500" fill="none" stroke="white" stroke-width="2"/>
+  <div style="position:relative;max-width:360px;margin:0 auto;">
+    <svg viewBox="0 0 360 480" style="width:100%;border-radius:8px;display:block;">
+      <rect width="360" height="480" fill="#2d6a2d"/>
+      <rect x="0"   y="0"   width="360" height="60"  fill="#286228" opacity="0.45"/>
+      <rect x="0"   y="120" width="360" height="60"  fill="#286228" opacity="0.45"/>
+      <rect x="0"   y="240" width="360" height="60"  fill="#286228" opacity="0.45"/>
+      <rect x="0"   y="360" width="360" height="60"  fill="#286228" opacity="0.45"/>
+      <rect x="12" y="12" width="336" height="456" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="12" y1="252" x2="348" y2="252" stroke="white" stroke-width="2"/>
+      <circle cx="180" cy="252" r="42" fill="none" stroke="white" stroke-width="2"/>
+      <circle cx="180" cy="252" r="3" fill="white"/>
+      <rect x="112" y="12"  width="136" height="36" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="138" y="12"  width="84"  height="18" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="112" y="432" width="136" height="36" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="138" y="450" width="84"  height="18" fill="none" stroke="white" stroke-width="2"/>
+      <path d="M112,48 A54,54 0 0,1 248,48"  fill="none" stroke="white" stroke-width="2"/>
+      <path d="M112,432 A54,54 0 0,0 248,432" fill="none" stroke="white" stroke-width="2"/>
     </svg>
-    <div id="players-layer" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+    <div id="players-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
   </div>
-  <div id="tooltip" style="position:fixed; background:#1e293b; color:white; padding:6px 10px;
-    border-radius:6px; font-size:12px; display:none; pointer-events:none; z-index:100;"></div>
+  <div id="tt" style="position:fixed;background:#1e293b;color:white;padding:5px 9px;
+    border-radius:6px;font-size:11px;display:none;pointer-events:none;z-index:200;"></div>
 </div>
 
 <script>
-var DATA = {players_json};
-var activeTeam = 0;
-var dragging = null;
-var offsetX = 0, offsetY = 0;
-var allPlayers = [];
+var DATA = {all_json};
+var active = 0;
 
-function toggleTeam(t) {{
-  activeTeam = t;
+function show(n) {{
+  active = n;
   render();
 }}
 
 function render() {{
   var layer = document.getElementById('players-layer');
-  var svg = document.getElementById('field');
-  var rect = svg.getBoundingClientRect();
   layer.innerHTML = '';
-  allPlayers = [];
-
-  var teams = activeTeam === 1 ? DATA.team1 :
-              activeTeam === 2 ? DATA.team2 :
-              DATA.team1.concat(DATA.team2);
-
-  teams.forEach(function(p, i) {{
-    var xPct = p.x / 100;
-    var yPct = p.y / 100;
+  var players = active === 1 ? DATA.t1 :
+                active === 2 ? DATA.t2 :
+                DATA.t1.concat(DATA.t2);
+  players.forEach(function(p) {{
     var el = document.createElement('div');
-    el.className = 'player-dot';
-    el.dataset.idx = i;
-    el.style.cssText = `
-      position:absolute;
-      left:calc(${{xPct * 100}}% - 22px);
-      top:calc(${{yPct * 100}}% - 22px);
-      width:44px; height:44px;
-      border-radius:50%;
-      background:${{p.color}};
-      border:2px solid white;
-      display:flex; flex-direction:column;
-      align-items:center; justify-content:center;
-      cursor:grab; user-select:none;
-      box-shadow:0 2px 6px rgba(0,0,0,0.4);
-      font-size:9px; color:white; font-weight:bold;
-      text-align:center; line-height:1.2;
-      transition: transform 0.1s;
-      z-index:10;
-    `;
-    var shortName = p.name.split(' ')[0];
-    el.innerHTML = `<span style="font-size:9px;line-height:1.1;">${{shortName}}</span><span style="font-size:8px;opacity:0.85;">${{p.role}}</span>`;
-
-    el.addEventListener('mousedown', startDrag);
-    el.addEventListener('touchstart', startDragTouch, {{passive:false}});
+    el.style.cssText = [
+      'position:absolute',
+      'left:calc(' + p.x + '% - 20px)',
+      'top:calc('  + p.y + '% - 20px)',
+      'width:40px','height:40px','border-radius:50%',
+      'background:' + p.color,
+      'border:2px solid rgba(255,255,255,0.9)',
+      'display:flex','flex-direction:column',
+      'align-items:center','justify-content:center',
+      'cursor:grab','user-select:none',
+      'font-size:8px','color:#111','font-weight:bold',
+      'text-align:center','line-height:1.2',
+      'box-shadow:0 2px 6px rgba(0,0,0,0.5)','z-index:10'
+    ].join(';');
+    var short = p.name.split(' ')[0];
+    el.innerHTML = '<span style="font-size:9px;">' + short + '</span>' +
+                   '<span style="font-size:7px;opacity:0.85;">' + p.role + '</span>';
     el.addEventListener('mouseenter', function(e) {{
-      var tt = document.getElementById('tooltip');
-      tt.style.display = 'block';
-      tt.innerHTML = `<b>${{p.name}}</b><br>${{p.role}} | ציון: ${{parseFloat(p.score).toFixed(1)}}`;
+      var tt = document.getElementById('tt');
+      tt.style.display='block';
+      tt.innerHTML='<b>'+p.name+'</b><br>'+p.role+' | '+parseFloat(p.score).toFixed(1);
     }});
-    el.addEventListener('mouseleave', function() {{
-      document.getElementById('tooltip').style.display = 'none';
-    }});
+    el.addEventListener('mouseleave', function() {{ document.getElementById('tt').style.display='none'; }});
+    addDrag(el, layer);
     layer.appendChild(el);
-    allPlayers.push({{el: el, data: p}});
   }});
 }}
 
-function startDrag(e) {{
-  e.preventDefault();
-  dragging = e.currentTarget;
-  dragging.style.cursor = 'grabbing';
-  dragging.style.zIndex = 100;
-  var r = dragging.getBoundingClientRect();
-  offsetX = e.clientX - r.left - r.width/2;
-  offsetY = e.clientY - r.top - r.height/2;
-  document.addEventListener('mousemove', onDrag);
-  document.addEventListener('mouseup', stopDrag);
-}}
-
-function startDragTouch(e) {{
-  e.preventDefault();
-  dragging = e.currentTarget;
-  var touch = e.touches[0];
-  var r = dragging.getBoundingClientRect();
-  offsetX = touch.clientX - r.left - r.width/2;
-  offsetY = touch.clientY - r.top - r.height/2;
-  document.addEventListener('touchmove', onDragTouch, {{passive:false}});
-  document.addEventListener('touchend', stopDrag);
-}}
-
-function onDrag(e) {{
-  if (!dragging) return;
-  moveEl(e.clientX, e.clientY);
-  var tt = document.getElementById('tooltip');
-  tt.style.left = (e.clientX + 12) + 'px';
-  tt.style.top  = (e.clientY - 10) + 'px';
-}}
-
-function onDragTouch(e) {{
-  if (!dragging) return;
-  e.preventDefault();
-  var touch = e.touches[0];
-  moveEl(touch.clientX, touch.clientY);
-}}
-
-function moveEl(cx, cy) {{
-  var layer = document.getElementById('players-layer');
-  var lr = layer.getBoundingClientRect();
-  var x = cx - lr.left - 22;
-  var y = cy - lr.top - 22;
-  dragging.style.left = Math.max(0, Math.min(lr.width - 44, x)) + 'px';
-  dragging.style.top  = Math.max(0, Math.min(lr.height - 44, y)) + 'px';
-}}
-
-function stopDrag(e) {{
-  if (!dragging) return;
-  dragging.style.cursor = 'grab';
-  dragging.style.zIndex = 10;
-  dragging = null;
-  document.removeEventListener('mousemove', onDrag);
-  document.removeEventListener('mouseup', stopDrag);
-  document.removeEventListener('touchmove', onDragTouch);
-  document.removeEventListener('touchend', stopDrag);
-}}
-
-document.addEventListener('mousemove', function(e) {{
-  var tt = document.getElementById('tooltip');
-  if (tt.style.display === 'block') {{
-    tt.style.left = (e.clientX + 12) + 'px';
-    tt.style.top  = (e.clientY - 10) + 'px';
+function addDrag(el, layer) {{
+  var ox=0, oy=0;
+  function startMove(cx, cy) {{
+    el.style.cursor='grabbing'; el.style.zIndex=100;
+    var r=el.getBoundingClientRect(); ox=cx-r.left-20; oy=cy-r.top-20;
   }}
+  function doMove(cx, cy) {{
+    var lr=layer.getBoundingClientRect();
+    el.style.left=Math.max(0,Math.min(lr.width-40, cx-lr.left-20))+'px';
+    el.style.top =Math.max(0,Math.min(lr.height-40,cy-lr.top -20))+'px';
+  }}
+  function stopMove() {{ el.style.cursor='grab'; el.style.zIndex=10; }}
+  el.addEventListener('mousedown',function(e){{ e.preventDefault(); startMove(e.clientX,e.clientY);
+    var mm=function(e){{doMove(e.clientX,e.clientY);}};
+    var mu=function(){{stopMove();document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu);}};
+    document.addEventListener('mousemove',mm); document.addEventListener('mouseup',mu);
+  }});
+  el.addEventListener('touchstart',function(e){{ e.preventDefault(); startMove(e.touches[0].clientX,e.touches[0].clientY);
+    var tm=function(e){{e.preventDefault();doMove(e.touches[0].clientX,e.touches[0].clientY);}};
+    var tu=function(){{stopMove();document.removeEventListener('touchmove',tm);document.removeEventListener('touchend',tu);}};
+    document.addEventListener('touchmove',tm,{{passive:false}}); document.addEventListener('touchend',tu);
+  }},{{passive:false}});
+}}
+
+document.addEventListener('mousemove',function(e){{
+  var tt=document.getElementById('tt');
+  if(tt.style.display==='block'){{ tt.style.left=(e.clientX+12)+'px'; tt.style.top=(e.clientY-10)+'px'; }}
 }});
 
 render();
 </script>
 """
     return html
+
 
 # ============================================================
 # 4. חיבור ל-Google Sheets
