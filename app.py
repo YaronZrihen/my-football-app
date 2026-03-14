@@ -169,17 +169,33 @@ def get_self_rating(player: dict) -> float | None:
     return parse_rating(player.get('rating'))
 
 
-def get_peer_avg(player: dict) -> float | None:
-    """ממוצע ציוני עמיתים — None אם אין דירוגים."""
-    peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
-    if not isinstance(peer_ratings, dict):
-        return None
-    peers = [parse_rating(v) for v in peer_ratings.values()]
-    peers = [v for v in peers if v is not None]
-    return round(sum(peers) / len(peers), 1) if peers else None
+def get_peer_avg(player: dict, all_players: list = None) -> float | None:
+    """
+    ממוצע ציוני עמיתים — סורק את כל השחקנים ומחפש מי דירג את השחקן הזה.
+    peer_ratings של כל שחקן = ציונים שהוא נתן לאחרים.
+    """
+    if all_players is None:
+        # fallback — קרא מהשדה הישן
+        peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
+        if not isinstance(peer_ratings, dict):
+            return None
+        peers = [parse_rating(v) for v in peer_ratings.values()]
+        peers = [v for v in peers if v is not None]
+        return round(sum(peers) / len(peers), 1) if peers else None
+
+    target_name = player.get('name', '')
+    ratings_received = []
+    for p in all_players:
+        if p['name'] == target_name:
+            continue
+        pr = safe_get_json(p.get('peer_ratings', '{}'))
+        val = parse_rating(pr.get(target_name))
+        if val is not None:
+            ratings_received.append(val)
+    return round(sum(ratings_received) / len(ratings_received), 1) if ratings_received else None
 
 
-def get_player_score(player: dict) -> float:
+def get_player_score(player: dict, all_players: list = None) -> float:
     """
     ציון משוכלל:
     - אם יש עמיתים: 60% אישי + 40% קבוצתי
@@ -187,7 +203,7 @@ def get_player_score(player: dict) -> float:
     - אם אין כלום: 0
     """
     self_r = get_self_rating(player)
-    peer_r = get_peer_avg(player)
+    peer_r = get_peer_avg(player, all_players)
 
     if self_r is not None and peer_r is not None:
         return round(self_r * 0.6 + peer_r * 0.4, 2)
@@ -289,7 +305,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'my_ratings', 'active']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -458,8 +474,8 @@ with tab2:
 
             # ציונים
             self_rating = get_self_rating(p)
-            peer_avg    = get_peer_avg(p)
-            weighted    = get_player_score(p)
+            peer_avg    = get_peer_avg(p, st.session_state.players)
+            weighted    = get_player_score(p, st.session_state.players)
 
             def score_color(s): return "#22c55e" if s >= 7 else "#f59e0b" if s >= 5 else "#ef4444"
             def score_badge(label, val):
@@ -590,8 +606,8 @@ with tab3:
 
         other_players = [p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")]
         peer_res = {}
-        # exist_peers = מה השחקן הנוכחי נתן לאחרים (נשמר ב-my_ratings)
-        exist_peers = safe_get_json(p_data.get('my_ratings', '{}') if p_data else '{}')
+        # exist_peers = מה השחקן נתן לאחרים (נשמר ב-peer_ratings שלו)
+        exist_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
 
         RATING_OPTIONS = ["—", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
 
@@ -633,13 +649,8 @@ with tab3:
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
                 # peer_res — שמור רק ערכים שדורגו (> 0), מחק None ו-0
-                # my_ratings = מה אני נתתי לאחרים (לא כולל None ו-0)
+                # peer_ratings = מה השחקן נתן לאחרים
                 my_ratings = {k: v for k, v in peer_res.items() if v is not None and v > 0}
-
-                # שמור את ה-peer_ratings הקיים של השחקן (מה אחרים נתנו לו) — לא לדרוס
-                existing_peer_ratings = safe_get_json(
-                    next((p.get('peer_ratings','{}') for p in st.session_state.players if p['name'] == choice), '{}')
-                )
 
                 new_entry = {
                     "name": f_name.strip(),
@@ -647,9 +658,8 @@ with tab3:
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
-                    "peer_ratings": json.dumps(existing_peer_ratings, ensure_ascii=False),
+                    "peer_ratings": json.dumps(my_ratings, ensure_ascii=False),
                     "active": str(f_active),
-                    "my_ratings": json.dumps(my_ratings, ensure_ascii=False),
                 }
 
                 # עדכון או הוספה של השחקן הנוכחי
@@ -665,18 +675,8 @@ with tab3:
                         st.stop()
                     st.session_state.players.append(new_entry)
 
-                # עדכון peer_ratings אצל כל שחקן שדורג:
-                # הציון שנתתי לדוד נשמר אצל דוד תחת peer_ratings[שמי]
-                editor_name = f_name.strip()
-                for rated_name, rating_val in my_ratings.items():
-                    target_idx = next(
-                        (i for i, x in enumerate(st.session_state.players) if x['name'] == rated_name),
-                        None
-                    )
-                    if target_idx is not None:
-                        target_pr = safe_get_json(st.session_state.players[target_idx].get('peer_ratings', '{}'))
-                        target_pr[editor_name] = rating_val
-                        st.session_state.players[target_idx]['peer_ratings'] = json.dumps(target_pr, ensure_ascii=False)
+                # peer_ratings נשמר אצל השחקן עצמו = מה שהוא נתן לאחרים
+                # אין צורך לפזר לשורות אחרות
 
                 if save_to_gsheets(st.session_state.players):
                     st.success(f"✅ {f_name} נשמר בהצלחה!")
