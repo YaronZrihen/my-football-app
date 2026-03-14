@@ -627,11 +627,15 @@ with tab2:
             pnum = p.get('player_num', '')
             pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
 
-            try:
-                wins = safe_int(p.get("win_points"))
-            except (ValueError, TypeError):
-                wins = 0
-            wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}</span>" if wins > 0 else ""
+            wins = safe_int(p.get("win_points"))
+            games_played = sum(
+                1 for g in st.session_state.get('game_history', [])
+                if p['name'] in g.get('team1', []) + g.get('team2', [])
+            )
+            if wins > 0 or games_played > 0:
+                wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}/{games_played}</span>"
+            else:
+                wins_str = ""
             st.markdown(
                 f"<div class='database-card'>"
                 f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
