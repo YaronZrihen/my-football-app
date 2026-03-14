@@ -100,16 +100,7 @@ div[data-testid="stPills"] button[aria-checked="true"] {
     transition: all 0.2s;
 }
 
-/* ===== סליידר דירוג ===== */
-div[data-testid="stSlider"] {
-    width: calc(100% - 40px) !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-/* הסתרת הבאלון הצף שפורץ */
-div[data-testid="stSlider"] [data-testid="stThumbValue"] {
-    display: none !important;
-}
+
 
 /* ===== רספונסיבי למובייל ===== */
 @media (max-width: 480px) {
@@ -492,13 +483,14 @@ with tab3:
             default=[r for r in existing_roles if r in ROLES]
         )
 
-        f_rate = st.slider(
+        f_rate_str = st.pills(
             "ציון עצמי (1-10):",
-            min_value=1, max_value=10,
-            value=int(p_data.get('rating', 5)) if p_data else 5,
-            key="self_rate_slider",
+            options=[str(i) for i in range(1, 11)],
+            default=str(int(p_data.get('rating', 5)) if p_data else 5),
+            selection_mode="single",
+            key="self_rate_pills",
         )
-        st.caption(f"ערך נבחר: {st.session_state.get('self_rate_slider', int(p_data.get('rating', 5)) if p_data else 5)} / 10")
+        f_rate = int(f_rate_str) if f_rate_str else 5
 
         # דירוג עמיתים — רק אם יש שחקנים אחרים
         st.markdown("---")
@@ -512,12 +504,14 @@ with tab3:
             # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
-                    peer_res[op['name']] = st.slider(
+                    peer_str = st.pills(
                         f"{op['name']}:",
-                        min_value=1, max_value=10,
-                        value=int(exist_peers.get(op['name'], 5)),
+                        options=[str(i) for i in range(1, 11)],
+                        default=str(int(exist_peers.get(op['name'], 5))),
+                        selection_mode="single",
                         key=f"pr_{op['name']}",
                     )
+                    peer_res[op['name']] = int(peer_str) if peer_str else 5
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
 
