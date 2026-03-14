@@ -735,15 +735,15 @@ with tab3:
         auto_num = len(st.session_state.players) + 1
 
     with st.form("edit_form", clear_on_submit=False):
+        # מספר שחקן — מעל השם
+        st.markdown(f"<div style='color:#94a3b8; font-size:14px; margin-bottom:4px;'>מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>", unsafe_allow_html=True)
+
         # שם מלא
         f_name = st.text_input(
             "שם מלא *",
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
         )
-
-        # מספר שחקן — אוטומטי, לקריאה בלבד (מוצג כטקסט)
-        st.markdown(f"<div style='color:#94a3b8; font-size:14px; margin-bottom:4px;'>מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>", unsafe_allow_html=True)
 
         # שנת לידה
         f_year = st.number_input(
