@@ -751,47 +751,72 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            col_w, col_b = st.columns(2)
-            teams_data = [
-                {"team_key": "t1", "label": "⚪ לבן"},
-                {"team_key": "t2", "label": "⚫ שחור"}
-            ]
+            # בניית HTML קומפקטי לסלולאר
+            t1 = st.session_state.t1
+            t2 = st.session_state.t2
 
-            for col, data in zip([col_w, col_b], teams_data):
-                with col:
-                    team = st.session_state[data["team_key"]]
-                    st.markdown(
-                        f"<div class='team-header'>{data['label']} ({len(team)})</div>",
-                        unsafe_allow_html=True
+            def player_rows(team, team_key):
+                rows = ""
+                for i, p in enumerate(team):
+                    pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
+                    pnum_tag = f"<span style='color:#60a5fa;font-size:10px;'>#{pnum}</span> " if pnum else ""
+                    other_key = "t2" if team_key == "t1" else "t1"
+                    rows += (
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                        f"background:#1e293b;border-radius:5px;padding:5px 7px;margin-bottom:3px;'>"
+                        f"<span style='font-size:12px;'>{pnum_tag}{p['name']} "
+                        f"<span style='color:#64748b;font-size:11px;'>({p['age']})</span></span>"
+                        f"<span style='color:#22c55e;font-size:11px;font-weight:bold;'>{p['score']:.1f}</span>"
+                        f"</div>"
                     )
-                    for i, player in enumerate(team):
-                        c_txt, c_swp = st.columns([4, 1])
-                        with c_txt:
-                            pnum = next((p.get('player_num','') for p in st.session_state.players if p['name']==player['name']), '')
-                            pnum_tag = f"<span style='color:#60a5fa;font-size:11px;'>#{pnum} </span>" if pnum else ""
-                            st.markdown(
-                                f"<div class='p-box'>"
-                                f"<span>{pnum_tag}{player['name']} ({player['age']})</span>"
-                                f"<span class='p-score'>{player['score']:.1f}</span>"
-                                f"</div>",
-                                unsafe_allow_html=True
-                            )
-                        with c_swp:
-                            other_key = "t2" if data["team_key"] == "t1" else "t1"
-                            if st.button("🔄", key=f"sw_{data['team_key']}_{i}"):
-                                moved = st.session_state[data["team_key"]].pop(i)
-                                st.session_state[other_key].append(moved)
-                                st.rerun()
+                return rows
 
-                    if team:
-                        avg_score = balance_score(team)
-                        avg_age = sum(p['age'] for p in team) / len(team)
-                        st.markdown(
-                            f"<div class='team-stats'>"
-                            f"<b>רמה: {avg_score:.1f}</b> | גיל ממוצע: {avg_age:.1f}"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+            avg1 = balance_score(t1)
+            avg2 = balance_score(t2)
+            age1 = sum(p['age'] for p in t1)/len(t1) if t1 else 0
+            age2 = sum(p['age'] for p in t2)/len(t2) if t2 else 0
+
+            teams_html = f"""
+<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;direction:rtl;'>
+  <div style='background:#1e3a5f;border-radius:8px 8px 0 0;overflow:hidden;'>
+    <div style='background:#1e3a5f;padding:7px 10px;text-align:center;font-weight:bold;font-size:13px;'>
+      ⚪ לבן ({len(t1)})
+    </div>
+    <div style='padding:6px;'>
+      {player_rows(t1, 't1')}
+    </div>
+    <div style='background:#0f172a;padding:6px;text-align:center;font-size:11px;border-top:1px solid #334155;'>
+      <b>רמה: {avg1:.1f}</b> | גיל: {age1:.1f}
+    </div>
+  </div>
+  <div style='background:#3a1e1e;border-radius:8px 8px 0 0;overflow:hidden;'>
+    <div style='background:#3a1e1e;padding:7px 10px;text-align:center;font-weight:bold;font-size:13px;'>
+      ⚫ שחור ({len(t2)})
+    </div>
+    <div style='padding:6px;'>
+      {player_rows(t2, 't2')}
+    </div>
+    <div style='background:#0f172a;padding:6px;text-align:center;font-size:11px;border-top:1px solid #334155;'>
+      <b>רמה: {avg2:.1f}</b> | גיל: {age2:.1f}
+    </div>
+  </div>
+</div>
+"""
+            st.markdown(teams_html, unsafe_allow_html=True)
+
+            # כפתורי החלפה
+            st.markdown("<p style='font-size:11px;color:#64748b;text-align:center;margin:4px 0;'>להחלפת שחקן בין קבוצות:</p>", unsafe_allow_html=True)
+            swap_cols = st.columns(len(t1) + len(t2))
+            for i, player in enumerate(t1):
+                with swap_cols[i]:
+                    if st.button("🔄", key=f"sw_t1_{i}", help=player['name']):
+                        st.session_state.t2.append(st.session_state.t1.pop(i))
+                        st.rerun()
+            for j, player in enumerate(t2):
+                with swap_cols[len(t1) + j]:
+                    if st.button("🔄", key=f"sw_t2_{j}", help=player['name']):
+                        st.session_state.t1.append(st.session_state.t2.pop(j))
+                        st.rerun()
 
             # כפתור מגרש
             if st.button("🏟️ הצג מגרש", use_container_width=True):
