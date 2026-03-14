@@ -311,6 +311,16 @@ def load_players(force: bool = False) -> list:
         return st.session_state.get('_players_cached', [])
 
 
+def safe_int(val) -> int:
+    """המרה בטוחה ל-int — מטפל ב-NaN, None, string ריק."""
+    try:
+        f = float(val)
+        import math
+        return 0 if math.isnan(f) else int(f)
+    except (ValueError, TypeError):
+        return 0
+
+
 def _recalc_win_points(all_players: list, all_history: list):
     """
     חישוב מחדש של נקודות ניצחון לכל שחקן מההיסטוריה המלאה.
@@ -328,7 +338,7 @@ def _recalc_win_points(all_players: list, all_history: list):
         for name in winners:
             idx = next((i for i, p in enumerate(all_players) if p["name"] == name), None)
             if idx is not None:
-                all_players[idx]["win_points"] = int(all_players[idx].get("win_points", 0) or 0) + 1
+                all_players[idx]["win_points"] = safe_int(all_players[idx].get("win_points")) + 1
 
 
 def save_history_to_gsheets(history: list) -> bool:
@@ -618,7 +628,7 @@ with tab2:
             pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
 
             try:
-                wins = int(float(p.get("win_points") or 0))
+                wins = safe_int(p.get("win_points"))
             except (ValueError, TypeError):
                 wins = 0
             wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}</span>" if wins > 0 else ""
@@ -943,8 +953,8 @@ with tab4:
     st.markdown("---")
     st.markdown("### 🏅 טבלת נקודות ניצחון")
     pts_data = [
-        {"שם": p["name"], "ניצחונות": int(float(p.get("win_points") or 0))}
-        for p in sorted(st.session_state.players, key=lambda x: int(float(x.get("win_points") or 0)), reverse=True)
+        {"שם": p["name"], "ניצחונות": safe_int(p.get("win_points"))}
+        for p in sorted(st.session_state.players, key=lambda x: safe_int(x.get("win_points")), reverse=True)
         if is_player_active(p)
     ]
     if pts_data:
