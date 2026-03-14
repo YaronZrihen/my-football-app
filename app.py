@@ -280,6 +280,14 @@ def save_to_gsheets(players: list) -> bool:
 
 if 'players' not in st.session_state:
     st.session_state.players = load_players()
+    # אתחול מספרים רצים לשחקנים שאין להם player_num
+    needs_save = False
+    for i, p in enumerate(st.session_state.players):
+        if not str(p.get('player_num', '')).isdigit():
+            p['player_num'] = i + 1
+            needs_save = True
+    if needs_save:
+        save_to_gsheets(st.session_state.players)
 
 if 'edit_name' not in st.session_state:
     st.session_state.edit_name = "🆕 שחקן חדש"
