@@ -545,6 +545,29 @@ with tab3:
 
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
 
+    # הצגת ציונים נוכחיים אם יש שחקן נבחר
+    if p_data:
+        self_r   = get_self_rating(p_data)
+        peer_r   = get_peer_avg(p_data, st.session_state.players)
+        weighted = get_player_score(p_data, st.session_state.players)
+
+        def _sc(v): return "#22c55e" if v >= 7 else "#f59e0b" if v >= 5 else "#ef4444"
+        def _badge(label, val):
+            if val is None:
+                return f"<div style='text-align:center;flex:1'><div style='font-size:11px;color:#94a3b8;margin-bottom:2px;'>{label}</div><div style='font-size:22px;color:#4a5568;'>—</div></div>"
+            return f"<div style='text-align:center;flex:1'><div style='font-size:11px;color:#94a3b8;margin-bottom:2px;'>{label}</div><div style='font-size:22px;font-weight:bold;color:{_sc(val)};'>{val:.1f}</div></div>"
+
+        st.markdown(
+            f"<div style='display:flex;gap:8px;background:#1e293b;border-radius:10px;padding:12px 16px;margin-bottom:14px;'>"
+            f"{_badge('ציון אישי', self_r)}"
+            f"<div style='width:1px;background:#334155;margin:0 4px;'></div>"
+            f"{_badge('ציון קבוצתי', peer_r)}"
+            f"<div style='width:1px;background:#334155;margin:0 4px;'></div>"
+            f"{_badge('משוכלל', weighted if weighted > 0 else None)}"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
     # מספר שחקן רץ — לשחקן קיים: שומר את המספר שלו. לשחקן חדש: מספר רץ (len+1)
     if p_data and str(p_data.get('player_num', '')).isdigit():
         auto_num = int(p_data['player_num'])
