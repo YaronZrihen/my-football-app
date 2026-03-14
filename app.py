@@ -279,6 +279,241 @@ def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
     return t1, t2
 
 
+
+def build_field_html(t1: list, t2: list, players_data: list) -> str:
+    """בונה HTML אינטראקטיבי של מגרש עם drag & drop לפי תפקידים."""
+
+    ROLE_POSITIONS = {
+        "שוער":       {"x": 50, "y": 88},
+        "בלם":        {"x": 50, "y": 73},
+        "מגן ימין":   {"x": 20, "y": 63},
+        "מגן שמאל":   {"x": 80, "y": 63},
+        "קשר אחורי":  {"x": 50, "y": 53},
+        "קשר קדמי":   {"x": 50, "y": 38},
+        "אגף ימין":   {"x": 15, "y": 43},
+        "אגף שמאל":   {"x": 85, "y": 43},
+        "חלוץ":       {"x": 50, "y": 22},
+    }
+    ROLE_PRIORITY = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
+
+    def assign_positions(team, color):
+        """מיין שחקנים לפי תפקיד ראשי ופזר על המגרש."""
+        assigned = []
+        used_positions = set()
+        # מעבר ראשון — שחקן שיש לו תפקיד ספציפי
+        for p in team:
+            name = p['name']
+            pd = next((x for x in players_data if x['name'] == name), {})
+            roles = [r.strip() for r in str(pd.get('roles','')).split(',') if r.strip()]
+            placed = False
+            for role in roles:
+                if role in ROLE_POSITIONS and role not in used_positions:
+                    pos = ROLE_POSITIONS[role]
+                    assigned.append({"name": name, "x": pos["x"], "y": pos["y"], "role": role, "color": color, "score": p.get('score', 0)})
+                    used_positions.add(role)
+                    placed = True
+                    break
+            if not placed:
+                assigned.append({"name": name, "x": None, "y": None, "role": "?", "color": color, "score": p.get('score', 0)})
+
+        # מעבר שני — מי שנשאר ללא עמדה
+        remaining_roles = [r for r in ROLE_PRIORITY if r not in used_positions]
+        unplaced = [p for p in assigned if p["x"] is None]
+        for i, p in enumerate(unplaced):
+            if i < len(remaining_roles):
+                role = remaining_roles[i]
+                pos = ROLE_POSITIONS[role]
+                p["x"] = pos["x"]
+                p["y"] = pos["y"]
+                p["role"] = role
+            else:
+                # אם עודף שחקנים — פזר בשורה תחתונה
+                p["x"] = 10 + (i * 15) % 80
+                p["y"] = 95
+        return assigned
+
+    team1_placed = assign_positions(t1, "#3b82f6")   # כחול = לבן
+    team2_placed = assign_positions(t2, "#ef4444")    # אדום = שחור
+
+    # בנה JSON לשחקנים
+    import json
+    players_json = json.dumps({"team1": team1_placed, "team2": team2_placed}, ensure_ascii=False)
+
+    html = f"""
+<div style="font-family:sans-serif; direction:rtl; padding:8px;">
+  <div style="display:flex; gap:8px; margin-bottom:8px; justify-content:center;">
+    <button onclick="toggleTeam(1)" id="btn1"
+      style="padding:6px 16px; border-radius:6px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:13px;">⚪ לבן</button>
+    <button onclick="toggleTeam(2)" id="btn2"
+      style="padding:6px 16px; border-radius:6px; border:none; background:#ef4444; color:white; cursor:pointer; font-size:13px;">⚫ שחור</button>
+    <button onclick="toggleTeam(0)" id="btn0"
+      style="padding:6px 16px; border-radius:6px; border:none; background:#4a5568; color:white; cursor:pointer; font-size:13px;">שתי קבוצות</button>
+  </div>
+  <div style="position:relative; width:100%; max-width:420px; margin:0 auto;">
+    <svg id="field" viewBox="0 0 420 560" style="width:100%; border-radius:8px; display:block;">
+      <!-- מגרש -->
+      <rect width="420" height="560" fill="#2d6a2d"/>
+      <!-- פסי דשא -->
+      <rect x="0" y="0" width="420" height="70" fill="#286228" opacity="0.5"/>
+      <rect x="0" y="140" width="420" height="70" fill="#286228" opacity="0.5"/>
+      <rect x="0" y="280" width="420" height="70" fill="#286228" opacity="0.5"/>
+      <rect x="0" y="420" width="420" height="70" fill="#286228" opacity="0.5"/>
+      <!-- קווים -->
+      <rect x="20" y="20" width="380" height="520" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="20" y1="300" x2="400" y2="300" stroke="white" stroke-width="2"/>
+      <circle cx="210" cy="300" r="50" fill="none" stroke="white" stroke-width="2"/>
+      <circle cx="210" cy="300" r="3" fill="white"/>
+      <!-- שער עליון -->
+      <rect x="145" y="20" width="130" height="40" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="170" y="20" width="80" height="20" fill="none" stroke="white" stroke-width="2"/>
+      <!-- שער תחתון -->
+      <rect x="145" y="500" width="130" height="40" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="170" y="540" width="80" height="20" fill="none" stroke="white" stroke-width="2"/>
+      <!-- עיגולי שוער -->
+      <path d="M145,60 A65,65 0 0,1 275,60" fill="none" stroke="white" stroke-width="2"/>
+      <path d="M145,500 A65,65 0 0,0 275,500" fill="none" stroke="white" stroke-width="2"/>
+    </svg>
+    <div id="players-layer" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+  </div>
+  <div id="tooltip" style="position:fixed; background:#1e293b; color:white; padding:6px 10px;
+    border-radius:6px; font-size:12px; display:none; pointer-events:none; z-index:100;"></div>
+</div>
+
+<script>
+var DATA = {players_json};
+var activeTeam = 0;
+var dragging = null;
+var offsetX = 0, offsetY = 0;
+var allPlayers = [];
+
+function toggleTeam(t) {{
+  activeTeam = t;
+  render();
+}}
+
+function render() {{
+  var layer = document.getElementById('players-layer');
+  var svg = document.getElementById('field');
+  var rect = svg.getBoundingClientRect();
+  layer.innerHTML = '';
+  allPlayers = [];
+
+  var teams = activeTeam === 1 ? DATA.team1 :
+              activeTeam === 2 ? DATA.team2 :
+              DATA.team1.concat(DATA.team2);
+
+  teams.forEach(function(p, i) {{
+    var xPct = p.x / 100;
+    var yPct = p.y / 100;
+    var el = document.createElement('div');
+    el.className = 'player-dot';
+    el.dataset.idx = i;
+    el.style.cssText = `
+      position:absolute;
+      left:calc(${{xPct * 100}}% - 22px);
+      top:calc(${{yPct * 100}}% - 22px);
+      width:44px; height:44px;
+      border-radius:50%;
+      background:${{p.color}};
+      border:2px solid white;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      cursor:grab; user-select:none;
+      box-shadow:0 2px 6px rgba(0,0,0,0.4);
+      font-size:9px; color:white; font-weight:bold;
+      text-align:center; line-height:1.2;
+      transition: transform 0.1s;
+      z-index:10;
+    `;
+    var shortName = p.name.split(' ')[0];
+    el.innerHTML = `<span style="font-size:9px;line-height:1.1;">${{shortName}}</span><span style="font-size:8px;opacity:0.85;">${{p.role}}</span>`;
+
+    el.addEventListener('mousedown', startDrag);
+    el.addEventListener('touchstart', startDragTouch, {{passive:false}});
+    el.addEventListener('mouseenter', function(e) {{
+      var tt = document.getElementById('tooltip');
+      tt.style.display = 'block';
+      tt.innerHTML = `<b>${{p.name}}</b><br>${{p.role}} | ציון: ${{parseFloat(p.score).toFixed(1)}}`;
+    }});
+    el.addEventListener('mouseleave', function() {{
+      document.getElementById('tooltip').style.display = 'none';
+    }});
+    layer.appendChild(el);
+    allPlayers.push({{el: el, data: p}});
+  }});
+}}
+
+function startDrag(e) {{
+  e.preventDefault();
+  dragging = e.currentTarget;
+  dragging.style.cursor = 'grabbing';
+  dragging.style.zIndex = 100;
+  var r = dragging.getBoundingClientRect();
+  offsetX = e.clientX - r.left - r.width/2;
+  offsetY = e.clientY - r.top - r.height/2;
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
+}}
+
+function startDragTouch(e) {{
+  e.preventDefault();
+  dragging = e.currentTarget;
+  var touch = e.touches[0];
+  var r = dragging.getBoundingClientRect();
+  offsetX = touch.clientX - r.left - r.width/2;
+  offsetY = touch.clientY - r.top - r.height/2;
+  document.addEventListener('touchmove', onDragTouch, {{passive:false}});
+  document.addEventListener('touchend', stopDrag);
+}}
+
+function onDrag(e) {{
+  if (!dragging) return;
+  moveEl(e.clientX, e.clientY);
+  var tt = document.getElementById('tooltip');
+  tt.style.left = (e.clientX + 12) + 'px';
+  tt.style.top  = (e.clientY - 10) + 'px';
+}}
+
+function onDragTouch(e) {{
+  if (!dragging) return;
+  e.preventDefault();
+  var touch = e.touches[0];
+  moveEl(touch.clientX, touch.clientY);
+}}
+
+function moveEl(cx, cy) {{
+  var layer = document.getElementById('players-layer');
+  var lr = layer.getBoundingClientRect();
+  var x = cx - lr.left - 22;
+  var y = cy - lr.top - 22;
+  dragging.style.left = Math.max(0, Math.min(lr.width - 44, x)) + 'px';
+  dragging.style.top  = Math.max(0, Math.min(lr.height - 44, y)) + 'px';
+}}
+
+function stopDrag(e) {{
+  if (!dragging) return;
+  dragging.style.cursor = 'grab';
+  dragging.style.zIndex = 10;
+  dragging = null;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchmove', onDragTouch);
+  document.removeEventListener('touchend', stopDrag);
+}}
+
+document.addEventListener('mousemove', function(e) {{
+  var tt = document.getElementById('tooltip');
+  if (tt.style.display === 'block') {{
+    tt.style.left = (e.clientX + 12) + 'px';
+    tt.style.top  = (e.clientY - 10) + 'px';
+  }}
+}});
+
+render();
+</script>
+"""
+    return html
+
 # ============================================================
 # 4. חיבור ל-Google Sheets
 # ============================================================
@@ -557,6 +792,19 @@ with tab1:
                             f"</div>",
                             unsafe_allow_html=True
                         )
+
+            # כפתור מגרש
+            if st.button("🏟️ הצג מגרש", use_container_width=True):
+                st.session_state.show_field = not st.session_state.get('show_field', False)
+
+            if st.session_state.get('show_field', False):
+                field_html = build_field_html(
+                    st.session_state.t1,
+                    st.session_state.t2,
+                    st.session_state.players
+                )
+                import streamlit.components.v1 as components
+                components.html(field_html, height=660, scrolling=False)
 
             # כפתור שמירת חלוקה
             st.markdown("---")
