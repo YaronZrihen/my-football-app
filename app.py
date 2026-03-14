@@ -102,21 +102,13 @@ div[data-testid="stPills"] button[aria-checked="true"] {
 
 /* ===== סליידר דירוג ===== */
 div[data-testid="stSlider"] {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
+    width: calc(100% - 40px) !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
-div[data-testid="stForm"] {
-    overflow: visible !important;
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-}
-/* הערך הצף מעל הידית */
+/* הסתרת הבאלון הצף שפורץ */
 div[data-testid="stSlider"] [data-testid="stThumbValue"] {
-    left: auto !important;
-    right: auto !important;
-    max-width: 40px !important;
+    display: none !important;
 }
 
 /* ===== רספונסיבי למובייל ===== */
@@ -504,7 +496,9 @@ with tab3:
             "ציון עצמי (1-10):",
             min_value=1, max_value=10,
             value=int(p_data.get('rating', 5)) if p_data else 5,
+            key="self_rate_slider",
         )
+        st.caption(f"ערך נבחר: {st.session_state.get('self_rate_slider', int(p_data.get('rating', 5)) if p_data else 5)} / 10")
 
         # דירוג עמיתים — רק אם יש שחקנים אחרים
         st.markdown("---")
