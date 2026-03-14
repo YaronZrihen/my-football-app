@@ -292,7 +292,7 @@ def load_players() -> list:
     """טעינת שחקנים מ-Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(ttl=0)  # ללא cache — תמיד טען עדכני
+        df = conn.read(ttl=60)  # cache ל-60 שניות
         return df.dropna(subset=['name']).to_dict(orient='records')
     except Exception as e:
         st.warning(f"⚠️ שגיאה בטעינת נתונים: {e}")
@@ -351,7 +351,7 @@ def load_history_from_gsheets() -> list:
     """טעינת היסטוריית משחקים מ-Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="history", ttl=0)
+        df = conn.read(worksheet="history", ttl=60)
         if df.empty:
             return []
         history = {}
@@ -819,6 +819,7 @@ with tab3:
                 # אין צורך לפזר לשורות אחרות
 
                 if save_to_gsheets(st.session_state.players):
+                    import time; time.sleep(1)  # המתן שה-cache יתעדכן
                     st.session_state.players = load_players()
                     st.session_state.edit_name = f_name.strip()
                     st.session_state.show_save_success = f_name.strip()
