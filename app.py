@@ -102,13 +102,21 @@ div[data-testid="stPills"] button[aria-checked="true"] {
 
 /* ===== סליידר דירוג ===== */
 div[data-testid="stSlider"] {
-    max-width: 100% !important;
-    overflow: visible !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
 }
-div[data-testid="stSlider"] > div > div {
-    max-width: 100% !important;
+div[data-testid="stForm"] {
+    overflow: visible !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+/* הערך הצף מעל הידית */
+div[data-testid="stSlider"] [data-testid="stThumbValue"] {
+    left: auto !important;
+    right: auto !important;
+    max-width: 40px !important;
 }
 
 /* ===== רספונסיבי למובייל ===== */
