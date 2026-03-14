@@ -1,6 +1,6 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-from streamlit_star_rating import st_star_rating
+import streamlit.components.v1 as components
 import pandas as pd
 import json
 
@@ -92,7 +92,22 @@ div[data-testid="stPills"] button[aria-checked="true"] {
     border: 1px solid #93c5fd !important;
 }
 
-/* ===== כפתורים ===== */
+/* ===== כוכבי דירוג ===== */
+div[data-testid="stRadio"] label {
+    font-size: 20px !important;
+    color: #4a5568;
+    cursor: pointer;
+    padding: 0 1px !important;
+    transition: color 0.1s;
+}
+div[data-testid="stRadio"] input:checked ~ div {
+    color: #f59e0b !important;
+}
+/* הסתרת נקודות הרדיו עצמן */
+div[data-testid="stRadio"] input[type="radio"] { display: none !important; }
+div[data-testid="stRadio"] > div { gap: 0px !important; flex-wrap: nowrap !important; }
+
+
 .stButton button {
     border-radius: 8px !important;
     font-size: 14px !important;
@@ -139,7 +154,27 @@ def safe_get_json(val) -> dict:
         return {}
 
 
-def get_player_score(player: dict) -> float:
+def star_rating_widget(label: str, key: str, default: int = 5) -> int:
+    """
+    רכיב כוכבים (1–10) ללא תלויות חיצוניות.
+    משתמש ב-st.pills עם סמלי כוכבים — עובד בתוך ומחוץ לטופס.
+    """
+    options = [str(i) for i in range(1, 11)]
+    labels  = ["⭐1","⭐2","⭐3","⭐4","⭐5","⭐6","⭐7","⭐8","⭐9","⭐10"]
+    st.markdown(f"<span style='font-size:14px; color:#cbd5e1;'>{label}</span>",
+                unsafe_allow_html=True)
+    chosen = st.radio(
+        label,
+        options=options,
+        index=default - 1,
+        horizontal=True,
+        key=key,
+        label_visibility="collapsed",
+        format_func=lambda x: f"{'★' * int(x)}",
+    )
+    return int(chosen)
+
+
     """
     חישוב ציון שחקן משוקלל:
     - 60% ציון עצמי
@@ -466,12 +501,10 @@ with tab3:
         )
 
         st.markdown("**ציון עצמי (1-10):**")
-        f_rate = st_star_rating(
-            label="",
-            maxValue=10,
-            defaultValue=int(p_data.get('rating', 5)) if p_data else 5,
+        f_rate = star_rating_widget(
+            label="ציון עצמי",
             key="self_rating",
-            emoticons=False,
+            default=int(p_data.get('rating', 5)) if p_data else 5,
         )
 
         # דירוג עמיתים — רק אם יש שחקנים אחרים
@@ -486,13 +519,10 @@ with tab3:
             # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
-                    st.markdown(f"**{op['name']}:**")
-                    peer_res[op['name']] = st_star_rating(
-                        label="",
-                        maxValue=10,
-                        defaultValue=int(exist_peers.get(op['name'], 5)),
+                    peer_res[op['name']] = star_rating_widget(
+                        label=op['name'],
                         key=f"pr_{op['name']}",
-                        emoticons=False,
+                        default=int(exist_peers.get(op['name'], 5)),
                     )
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
