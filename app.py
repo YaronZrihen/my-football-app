@@ -145,6 +145,16 @@ def safe_get_json(val) -> dict:
 
 
 
+def is_player_active(player: dict) -> bool:
+    """בדיקת פעילות שחקן — תומך ב-True/False/TRUE/FALSE/1/0/'true'/'false'."""
+    val = player.get('active', True)
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return bool(val)
+    return str(val).strip().lower() not in ('false', '0', 'none', '')
+
+
 def get_player_score(player: dict) -> float:
     """
     חישוב ציון שחקן משוקלל:
@@ -309,7 +319,7 @@ tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", 
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab1:
-    all_names = sorted([p['name'] for p in st.session_state.players if str(p.get('active', 'True')) == 'True'])
+    all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
     if not all_names:
         st.info("אין שחקנים במאגר. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
@@ -411,7 +421,7 @@ with tab2:
         filtered = [
             p for p in st.session_state.players
             if (not search or search.lower() in p['name'].lower())
-            and (show_inactive or str(p.get('active', 'True')) == 'True')
+            and (show_inactive or is_player_active(p))
         ]
 
         # מיון לפי ציון
@@ -429,7 +439,7 @@ with tab2:
             # צבע לפי ציון
             score_color = "#22c55e" if score >= 7 else "#f59e0b" if score >= 5 else "#ef4444"
 
-            is_active = str(p.get('active', 'True')) == 'True'
+            is_active = is_player_active(p)
             active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>לא פעיל</span>"
             pnum = p.get('player_num', '')
             pnum_str = f"<span style='color:#60a5fa; font-size:12px; margin-left:6px;'>#{pnum}</span>" if pnum else ""
@@ -535,7 +545,7 @@ with tab3:
         st.markdown("<div style='margin-top:8px; margin-right:4px;'>", unsafe_allow_html=True)
         f_active = st.toggle(
             "שחקן פעיל",
-            value=str(p_data.get('active', 'True')) == 'True' if p_data else True,
+            value=is_player_active(p_data) if p_data else True,
             key="form_active"
         )
         st.markdown("</div>", unsafe_allow_html=True)
