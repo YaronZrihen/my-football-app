@@ -92,34 +92,6 @@ div[data-testid="stPills"] button[aria-checked="true"] {
     border: 1px solid #93c5fd !important;
 }
 
-/* ===== דירוג מספרי ===== */
-div[data-testid="stRadio"] > div {
-    gap: 4px !important;
-    flex-wrap: nowrap !important;
-}
-div[data-testid="stRadio"] label {
-    background: #2d3748;
-    border: 1px solid #4a5568;
-    border-radius: 6px !important;
-    padding: 4px 8px !important;
-    font-size: 14px !important;
-    color: #cbd5e1 !important;
-    cursor: pointer;
-    transition: all 0.15s;
-    min-width: 32px;
-    text-align: center;
-}
-div[data-testid="stRadio"] label:hover {
-    background: #3b82f6 !important;
-    border-color: #3b82f6 !important;
-    color: white !important;
-}
-div[data-testid="stRadio"] input[type="radio"]:checked + div {
-    background: #3b82f6 !important;
-    border-color: #60a5fa !important;
-    color: white !important;
-    font-weight: bold !important;
-}
 
 
 .stButton button {
@@ -168,21 +140,7 @@ def safe_get_json(val) -> dict:
         return {}
 
 
-def star_rating_widget(label: str, key: str, default: int = 5) -> int:
-    """
-    רכיב דירוג מספרי (1–10) — כפתורי radio בשורה אופקית.
-    """
-    st.markdown(f"<span style='font-size:14px; color:#cbd5e1;'>{label}</span>",
-                unsafe_allow_html=True)
-    chosen = st.radio(
-        label,
-        options=list(range(1, 11)),
-        index=default - 1,
-        horizontal=True,
-        key=key,
-        label_visibility="collapsed",
-    )
-    return int(chosen)
+
 
 
 def get_player_score(player: dict) -> float:
@@ -523,11 +481,10 @@ with tab3:
             default=[r for r in existing_roles if r in ROLES]
         )
 
-        st.markdown("**ציון עצמי (1-10):**")
-        f_rate = star_rating_widget(
-            label="ציון עצמי",
-            key="self_rating",
-            default=int(p_data.get('rating', 5)) if p_data else 5,
+        f_rate = st.select_slider(
+            "ציון עצמי (1-10):",
+            options=list(range(1, 11)),
+            value=int(p_data.get('rating', 5)) if p_data else 5,
         )
 
         # דירוג עמיתים — רק אם יש שחקנים אחרים
@@ -542,10 +499,11 @@ with tab3:
             # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
-                    peer_res[op['name']] = star_rating_widget(
-                        label=op['name'],
+                    peer_res[op['name']] = st.select_slider(
+                        f"{op['name']}:",
+                        options=list(range(1, 11)),
+                        value=int(exist_peers.get(op['name'], 5)),
                         key=f"pr_{op['name']}",
-                        default=int(exist_peers.get(op['name'], 5)),
                     )
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
