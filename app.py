@@ -760,13 +760,17 @@ with tab1:
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_tag = f"<span style='color:#60a5fa;font-size:10px;'>#{pnum}</span> " if pnum else ""
-                    other_key = "t2" if team_key == "t1" else "t1"
+                    swap_key = f"sw_{team_key}_{i}"
                     rows += (
                         f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                        f"background:#1e293b;border-radius:5px;padding:5px 7px;margin-bottom:3px;'>"
-                        f"<span style='font-size:12px;'>{pnum_tag}{p['name']} "
-                        f"<span style='color:#64748b;font-size:11px;'>({p['age']})</span></span>"
-                        f"<span style='color:#22c55e;font-size:11px;font-weight:bold;'>{p['score']:.1f}</span>"
+                        f"background:#1e293b;border-radius:5px;padding:4px 6px;margin-bottom:3px;gap:4px;'>"
+                        f"<span style='font-size:12px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;'>"
+                        f"{pnum_tag}{p['name']} "
+                        f"<span style='color:#64748b;font-size:10px;'>({p['age']})</span></span>"
+                        f"<span style='color:#22c55e;font-size:11px;font-weight:bold;white-space:nowrap;'>{p['score']:.1f}</span>"
+                        f"<button onclick='swapPlayer(&quot;{team_key}&quot;,{i})' "
+                        f"style='background:#334155;border:none;border-radius:4px;color:white;"
+                        f"font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;line-height:1;'>🔄</button>"
                         f"</div>"
                     )
                 return rows
@@ -801,22 +805,29 @@ with tab1:
     </div>
   </div>
 </div>
+<script>
+function swapPlayer(teamKey, idx) {{
+  var url = new URL(window.parent.location.href);
+  url.searchParams.set('swap', 'sw_' + teamKey + '_' + idx);
+  window.parent.location.href = url.toString();
+}}
+</script>
 """
             st.markdown(teams_html, unsafe_allow_html=True)
 
-            # כפתורי החלפה
-            st.markdown("<p style='font-size:11px;color:#64748b;text-align:center;margin:4px 0;'>להחלפת שחקן בין קבוצות:</p>", unsafe_allow_html=True)
-            swap_cols = st.columns(len(t1) + len(t2))
-            for i, player in enumerate(t1):
-                with swap_cols[i]:
-                    if st.button("🔄", key=f"sw_t1_{i}", help=player['name']):
-                        st.session_state.t2.append(st.session_state.t1.pop(i))
-                        st.rerun()
-            for j, player in enumerate(t2):
-                with swap_cols[len(t1) + j]:
-                    if st.button("🔄", key=f"sw_t2_{j}", help=player['name']):
-                        st.session_state.t1.append(st.session_state.t2.pop(j))
-                        st.rerun()
+            # swap handler — דרך query params
+            swap_param = st.query_params.get("swap", "")
+            if swap_param:
+                parts = swap_param.split("_")
+                if len(parts) == 3:
+                    _, tk, idx = parts
+                    idx = int(idx)
+                    if tk == "t1" and idx < len(st.session_state.t1):
+                        st.session_state.t2.append(st.session_state.t1.pop(idx))
+                    elif tk == "t2" and idx < len(st.session_state.t2):
+                        st.session_state.t1.append(st.session_state.t2.pop(idx))
+                st.query_params.clear()
+                st.rerun()
 
             # כפתור מגרש
             if st.button("🏟️ הצג מגרש", use_container_width=True):
