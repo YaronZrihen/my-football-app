@@ -155,33 +155,45 @@ def is_player_active(player: dict) -> bool:
     return str(val).strip().lower() not in ('false', '0', 'none', '')
 
 
+def parse_rating(val) -> float | None:
+    """המרת ערך דירוג למספר — מחזיר None אם לא תקין או 0."""
+    try:
+        f = float(val)
+        return f if f > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def get_self_rating(player: dict) -> float | None:
+    """ציון עצמי — None אם לא הוגדר."""
+    return parse_rating(player.get('rating'))
+
+
+def get_peer_avg(player: dict) -> float | None:
+    """ממוצע ציוני עמיתים — None אם אין דירוגים."""
+    peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
+    if not isinstance(peer_ratings, dict):
+        return None
+    peers = [parse_rating(v) for v in peer_ratings.values()]
+    peers = [v for v in peers if v is not None]
+    return round(sum(peers) / len(peers), 1) if peers else None
+
+
 def get_player_score(player: dict) -> float:
     """
-    חישוב ציון שחקן משוקלל:
-    - 60% ציון עצמי
-    - 40% ממוצע דירוג עמיתים (אם קיים)
+    ציון משוכלל:
+    - אם יש עמיתים: 60% אישי + 40% קבוצתי
+    - אחרת: ציון אישי בלבד
+    - אם אין כלום: 0
     """
-    try:
-        self_rating = float(player.get('rating') or 5.0)
-    except (ValueError, TypeError):
-        self_rating = 5.0
+    self_r = get_self_rating(player)
+    peer_r = get_peer_avg(player)
 
-    try:
-        peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
-        peers = []
-        if isinstance(peer_ratings, dict):
-            for v in peer_ratings.values():
-                try:
-                    peers.append(float(v))
-                except (ValueError, TypeError):
-                    pass
-        avg_peers = sum(peers) / len(peers) if peers else 0
-    except Exception:
-        avg_peers = 0
-
-    if avg_peers > 0:
-        return round(self_rating * 0.6 + avg_peers * 0.4, 2)
-    return round(self_rating, 2)
+    if self_r is not None and peer_r is not None:
+        return round(self_r * 0.6 + peer_r * 0.4, 2)
+    if self_r is not None:
+        return round(self_r, 2)
+    return 0.0
 
 
 def get_player_age(player: dict) -> int:
@@ -435,14 +447,10 @@ with tab2:
             roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
             is_active = is_player_active(p)
 
-            # ציון אישי
-            self_rating = float(p.get('rating', 0) or 0)
-            # ציון קבוצתי (ממוצע עמיתים)
-            peer_ratings = safe_get_json(p.get('peer_ratings', '{}'))
-            peers = [float(v) for v in peer_ratings.values() if v and str(v).replace('.','').isdigit() and float(v) > 0]
-            peer_avg = round(sum(peers) / len(peers), 1) if peers else None
-            # ציון משוכלל
-            weighted = get_player_score(p)
+            # ציונים
+            self_rating = get_self_rating(p)
+            peer_avg    = get_peer_avg(p)
+            weighted    = get_player_score(p)
 
             def score_color(s): return "#22c55e" if s >= 7 else "#f59e0b" if s >= 5 else "#ef4444"
             def score_badge(label, val):
@@ -460,7 +468,7 @@ with tab2:
                 f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge}</div>"
                 f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}</div>"
                 f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
-                f"{score_badge('אישי', self_rating if self_rating > 0 else None)}"
+                f"{score_badge('אישי', self_rating)}"
                 f"<span style='color:#4a5568;font-size:12px;'>|</span>"
                 f"{score_badge('קבוצתי', peer_avg)}"
                 f"<span style='color:#4a5568;font-size:12px;'>|</span>"
@@ -609,8 +617,8 @@ with tab3:
                 st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
-                # peer_res — החלף None ב-0 לפני שמירה
-                clean_peers = {k: (v if v is not None else 0) for k, v in peer_res.items()}
+                # peer_res — שמור רק ערכים שדורגו (> 0), מחק None ו-0
+                clean_peers = {k: v for k, v in peer_res.items() if v is not None and v > 0}
                 new_entry = {
                     "name": f_name.strip(),
                     "player_num": auto_num,
