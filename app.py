@@ -288,11 +288,20 @@ def save_to_gsheets(players: list) -> bool:
     try:
         conn = get_connection()
         df = pd.DataFrame(players)
+        # וודא שכל העמודות הנדרשות קיימות
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active']
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = ''
+        df = df[required_cols]
+        st.write("🔍 debug — שומר:", df.shape, "שורות")  # debug זמני
         conn.update(data=df)
         st.cache_data.clear()
         return True
     except Exception as e:
         st.error(f"❌ שגיאת שמירה: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return False
 
 
