@@ -301,7 +301,7 @@ tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", 
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab1:
-    all_names = sorted([p['name'] for p in st.session_state.players])
+    all_names = sorted([p['name'] for p in st.session_state.players if str(p.get('active', 'True')) == 'True'])
 
     if not all_names:
         st.info("אין שחקנים במאגר. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
@@ -397,9 +397,11 @@ with tab2:
     else:
         # חיפוש
         search = st.text_input("🔍 חפש שחקן:", placeholder="הקלד שם...")
+        show_inactive = st.toggle("הצג שחקנים לא פעילים", value=False)
         filtered = [
             p for p in st.session_state.players
-            if not search or search.lower() in p['name'].lower()
+            if (not search or search.lower() in p['name'].lower())
+            and (show_inactive or str(p.get('active', 'True')) == 'True')
         ]
 
         # מיון לפי ציון
@@ -417,9 +419,11 @@ with tab2:
             # צבע לפי ציון
             score_color = "#22c55e" if score >= 7 else "#f59e0b" if score >= 5 else "#ef4444"
 
+            is_active = str(p.get('active', 'True')) == 'True'
+            active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>לא פעיל</span>"
             st.markdown(
                 f"<div class='database-card'>"
-                f"<div class='card-name'>{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span></div>"
+                f"<div class='card-name'>{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span> {active_badge}</div>"
                 f"<div class='card-detail'>"
                 f"ציון: <span style='color:{score_color}; font-weight:bold;'>{score:.1f}</span> "
                 f"| תפקידים: {roles}"
@@ -428,10 +432,17 @@ with tab2:
                 unsafe_allow_html=True
             )
 
-            ce, cd = st.columns([4, 1])
+            ce, ct, cd = st.columns([3, 1, 1])
             with ce:
                 if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
                     st.session_state.edit_name = p['name']
+                    st.rerun()
+            with ct:
+                toggle_label = "🔴" if is_active else "🟢"
+                if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
+                    idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == p['name'])
+                    st.session_state.players[idx]['active'] = str(not is_active)
+                    save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cd:
                 if st.button("🗑️", key=f"db_dl_{p['name']}", use_container_width=True):
@@ -465,6 +476,11 @@ with tab3:
             "שם מלא *",
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
+        )
+        f_active = st.toggle(
+            "שחקן פעיל",
+            value=str(p_data.get('active', 'True')) == 'True' if p_data else True,
+            key="form_active"
         )
         f_year = st.number_input(
             "שנת לידה:",
@@ -518,8 +534,13 @@ with tab3:
         submitted = st.form_submit_button("💾 שמור", use_container_width=True)
 
         if submitted:
+            errors = []
             if not f_name.strip():
-                st.error("❌ יש להזין שם שחקן.")
+                errors.append("שם מלא")
+            if not f_roles:
+                errors.append("תפקידים")
+            if errors:
+                st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
                 new_entry = {
@@ -527,7 +548,8 @@ with tab3:
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
-                    "peer_ratings": json.dumps(peer_res, ensure_ascii=False)
+                    "peer_ratings": json.dumps(peer_res, ensure_ascii=False),
+                    "active": str(f_active),
                 }
 
                 # עדכון או הוספה
