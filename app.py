@@ -478,27 +478,24 @@ with tab3:
 
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
 
+    # חישוב מספר שחקן אוטומטי מחוץ לטופס
+    existing_numbers = [int(p.get('player_num', 0)) for p in st.session_state.players if str(p.get('player_num', '')).isdigit()]
+    auto_num = int(p_data.get('player_num', 0)) if p_data and str(p_data.get('player_num', '')).isdigit() else (max(existing_numbers) + 1 if existing_numbers else 1)
+
     with st.form("edit_form", clear_on_submit=False):
+        # שם מלא
         f_name = st.text_input(
             "שם מלא *",
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
         )
-        # מספר שחקן — אוטומטי לשחקן חדש, ניתן לעריכה
-        existing_numbers = [int(p.get('player_num', 0)) for p in st.session_state.players if str(p.get('player_num', '')).isdigit()]
-        next_num = max(existing_numbers) + 1 if existing_numbers else 1
-        f_player_num = st.number_input(
-            "מספר שחקן *",
-            min_value=1, max_value=999,
-            value=int(p_data.get('player_num', next_num)) if p_data and str(p_data.get('player_num', '')).isdigit() else next_num,
-        )
-        f_active = st.toggle(
-            "שחקן פעיל",
-            value=str(p_data.get('active', 'True')) == 'True' if p_data else True,
-            key="form_active"
-        )
+
+        # מספר שחקן — אוטומטי, לקריאה בלבד (מוצג כטקסט)
+        st.markdown(f"<div style='color:#94a3b8; font-size:14px; margin-bottom:4px;'>מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>", unsafe_allow_html=True)
+
+        # שנת לידה
         f_year = st.number_input(
-            "שנת לידה:",
+            "שנת לידה *",
             min_value=1950,
             max_value=2015,
             value=int(p_data['birth_year']) if p_data else 1990
@@ -508,41 +505,50 @@ with tab3:
         ROLES = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
         f_roles = st.pills(
-            "תפקידים:",
+            "תפקידים *",
             ROLES,
             selection_mode="multi",
             default=[r for r in existing_roles if r in ROLES]
         )
 
+        # ציון עצמי
         f_rate_str = st.pills(
-            "ציון עצמי (1-10):",
+            "ציון עצמי (1-10) *",
             options=[str(i) for i in range(1, 11)],
             default=str(int(p_data.get('rating', 5)) if p_data else 5),
             selection_mode="single",
             key="self_rate_pills",
         )
-        f_rate = int(f_rate_str) if f_rate_str else 5
+        f_rate = int(f_rate_str) if f_rate_str else None
 
-        # דירוג עמיתים — רק אם יש שחקנים אחרים
+        # כפתור פעיל — מתחת לציון אישי
+        st.markdown("<div style='margin-top:8px; margin-right:4px;'>", unsafe_allow_html=True)
+        f_active = st.toggle(
+            "שחקן פעיל",
+            value=str(p_data.get('active', 'True')) == 'True' if p_data else True,
+            key="form_active"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # דירוג עמיתים
         st.markdown("---")
-        st.markdown("**דירוג עמיתים** (אופציונלי):")
+        st.markdown("**דירוג עמיתים** (חובה לכל שחקן):")
 
         other_players = [p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")]
         peer_res = {}
         exist_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
 
         if other_players:
-            # הצגה ב-expander כדי לא להעמיס את הטופס
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
                     peer_str = st.pills(
-                        f"{op['name']}:",
+                        f"{op['name']} *",
                         options=[str(i) for i in range(1, 11)],
-                        default=str(int(exist_peers.get(op['name'], 5))),
+                        default=str(int(exist_peers.get(op['name'], 0))) if exist_peers.get(op['name']) else None,
                         selection_mode="single",
                         key=f"pr_{op['name']}",
                     )
-                    peer_res[op['name']] = int(peer_str) if peer_str else 5
+                    peer_res[op['name']] = int(peer_str) if peer_str else None
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
 
@@ -554,27 +560,25 @@ with tab3:
                 errors.append("שם מלא")
             if not f_roles:
                 errors.append("תפקידים")
-            if not f_rate_str:
+            if not f_rate:
                 errors.append("ציון עצמי")
-            # בדיקת כפילות מספר שחקן
-            dup_num = any(
-                str(p.get('player_num', '')) == str(f_player_num)
-                and p['name'] != (p_data['name'] if p_data else "")
-                for p in st.session_state.players
-            )
-            if dup_num:
-                errors.append(f"מספר שחקן {f_player_num} כבר תפוס")
+            # בדיקה שכל השחקנים דורגו
+            unrated = [name for name, val in peer_res.items() if val is None]
+            if unrated and other_players:
+                errors.append(f"דירוג חסר: {', '.join(unrated)}")
             if errors:
-                st.error(f"❌ שגיאה: {', '.join(errors)}")
+                st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
+                # peer_res — החלף None ב-0 לפני שמירה
+                clean_peers = {k: (v if v is not None else 0) for k, v in peer_res.items()}
                 new_entry = {
                     "name": f_name.strip(),
-                    "player_num": f_player_num,
+                    "player_num": auto_num,
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
-                    "peer_ratings": json.dumps(peer_res, ensure_ascii=False),
+                    "peer_ratings": json.dumps(clean_peers, ensure_ascii=False),
                     "active": str(f_active),
                 }
 
