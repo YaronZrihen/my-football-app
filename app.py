@@ -299,6 +299,58 @@ def load_players() -> list:
         return []
 
 
+def save_history_to_gsheets(history: list) -> bool:
+    """שמירת היסטוריית משחקים לגיליון נפרד ב-Google Sheets."""
+    try:
+        conn = get_connection()
+        rows = []
+        for game in history:
+            rows.append({
+                "date": game["date"],
+                "team": "לבן",
+                "players": ", ".join(game["team1"]),
+                "avg_score": game["avg1"],
+            })
+            rows.append({
+                "date": game["date"],
+                "team": "שחור",
+                "players": ", ".join(game["team2"]),
+                "avg_score": game["avg2"],
+            })
+        df = pd.DataFrame(rows)
+        conn.update(data=df, worksheet="history")
+        return True
+    except Exception as e:
+        st.warning(f"⚠️ לא ניתן לשמור היסטוריה: {e}")
+        return False
+
+
+def load_history_from_gsheets() -> list:
+    """טעינת היסטוריית משחקים מ-Google Sheets."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="history", ttl=0)
+        if df.empty:
+            return []
+        history = {}
+        for _, row in df.iterrows():
+            date = str(row.get("date", ""))
+            team = str(row.get("team", ""))
+            players = [p.strip() for p in str(row.get("players", "")).split(",") if p.strip()]
+            avg = float(row.get("avg_score", 0) or 0)
+            if date not in history:
+                history[date] = {"date": date, "team1": [], "team2": [], "avg1": 0, "avg2": 0}
+            if team == "לבן":
+                history[date]["team1"] = players
+                history[date]["avg1"] = avg
+            else:
+                history[date]["team2"] = players
+                history[date]["avg2"] = avg
+        return sorted(history.values(), key=lambda x: x["date"], reverse=True)
+    except Exception:
+        return []
+
+
 def save_to_gsheets(players: list) -> bool:
     """שמירה ל-Google Sheets עם טיפול בשגיאות."""
     try:
@@ -342,6 +394,9 @@ if 'edit_name' not in st.session_state:
 if 'teams_generated' not in st.session_state:
     st.session_state.teams_generated = False
 
+if 'game_history' not in st.session_state:
+    st.session_state.game_history = load_history_from_gsheets()
+
 
 # ============================================================
 # 6. ממשק ראשי
@@ -349,7 +404,7 @@ if 'teams_generated' not in st.session_state:
 
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
+tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
 # ============================================================
@@ -441,6 +496,24 @@ with tab1:
                             f"</div>",
                             unsafe_allow_html=True
                         )
+
+            # כפתור שמירת חלוקה
+            st.markdown("---")
+            game_date = st.date_input("תאריך המשחק:", value=None, key="game_date")
+            if st.button("💾 שמור חלוקה להיסטוריה", use_container_width=True, disabled=not game_date):
+                import datetime
+                history = st.session_state.get('game_history', [])
+                history.append({
+                    "date": str(game_date),
+                    "team1": [p['name'] for p in st.session_state.t1],
+                    "team2": [p['name'] for p in st.session_state.t2],
+                    "avg1": round(balance_score(st.session_state.t1), 2),
+                    "avg2": round(balance_score(st.session_state.t2), 2),
+                })
+                st.session_state.game_history = history
+                # שמור ל-Sheets בגיליון נפרד
+                save_history_to_gsheets(history)
+                st.success(f"✅ חלוקה נשמרה לתאריך {game_date}")
 
 
 # ============================================================
@@ -717,3 +790,44 @@ with tab3:
                     st.session_state.edit_name = f_name.strip()
                     st.session_state.show_save_success = f_name.strip()
                     st.rerun()
+
+
+# ============================================================
+# TAB 4: היסטוריית משחקים
+# ============================================================
+with tab4:
+    st.subheader("היסטוריית משחקים")
+
+    if st.button("🔄 רענן היסטוריה", use_container_width=False):
+        st.session_state.game_history = load_history_from_gsheets()
+        st.rerun()
+
+    history = st.session_state.get('game_history', [])
+
+    if not history:
+        st.info("אין היסטוריה עדיין. שמור חלוקה מטאב החלוקה.")
+    else:
+        for game in history:
+            date_str = game.get("date", "")
+            t1 = game.get("team1", [])
+            t2 = game.get("team2", [])
+            avg1 = game.get("avg1", 0)
+            avg2 = game.get("avg2", 0)
+
+            st.markdown(
+                f"<div class='database-card'>"
+                f"<div style='font-size:14px;font-weight:bold;color:#60a5fa;margin-bottom:8px;'>📅 {date_str}</div>"
+                f"<div style='display:flex;gap:12px;flex-wrap:wrap;'>"
+                f"<div style='flex:1;min-width:120px;'>"
+                f"<div style='font-size:12px;color:#94a3b8;margin-bottom:4px;'>⚪ לבן — רמה {avg1:.1f}</div>"
+                f"<div style='font-size:13px;color:#e2e8f0;'>{', '.join(t1) if t1 else '—'}</div>"
+                f"</div>"
+                f"<div style='flex:1;min-width:120px;'>"
+                f"<div style='font-size:12px;color:#94a3b8;margin-bottom:4px;'>⚫ שחור — רמה {avg2:.1f}</div>"
+                f"<div style='font-size:13px;color:#e2e8f0;'>{', '.join(t2) if t2 else '—'}</div>"
+                f"</div>"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
