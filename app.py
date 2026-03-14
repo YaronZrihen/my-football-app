@@ -568,12 +568,12 @@ with tab3:
         existing_rating = str(int(p_data['rating'])) if p_data and str(p_data.get('rating','')).replace('.','').isdigit() and int(float(p_data.get('rating',0))) > 0 else None
         f_rate_str = st.pills(
             "ציון עצמי (1-10) *",
-            options=[str(i) for i in range(1, 11)],
-            default=existing_rating,
+            options=["—"] + [str(i) for i in range(1, 11)],
+            default=existing_rating if existing_rating else "—",
             selection_mode="single",
             key="self_rate_pills",
         )
-        f_rate = int(f_rate_str) if f_rate_str else None
+        f_rate = int(f_rate_str) if f_rate_str and f_rate_str != "—" else None
 
         # כפתור פעיל — מתחת לציון אישי
         st.markdown("<div style='margin-top:8px; margin-right:4px;'>", unsafe_allow_html=True)
@@ -593,22 +593,24 @@ with tab3:
         # exist_peers = מה השחקן הנוכחי נתן לאחרים (נשמר ב-my_ratings)
         exist_peers = safe_get_json(p_data.get('my_ratings', '{}') if p_data else '{}')
 
+        RATING_OPTIONS = ["—", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+
         if other_players:
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
                     peer_val = exist_peers.get(op['name'])
                     try:
-                        peer_default = str(int(float(peer_val))) if peer_val and float(peer_val) > 0 else None
+                        peer_default = str(int(float(peer_val))) if peer_val and float(peer_val) > 0 else "—"
                     except (ValueError, TypeError):
-                        peer_default = None
+                        peer_default = "—"
                     peer_str = st.pills(
                         f"{op['name']} *",
-                        options=[str(i) for i in range(1, 11)],
+                        options=RATING_OPTIONS,
                         default=peer_default,
                         selection_mode="single",
                         key=f"pr_{op['name']}",
                     )
-                    peer_res[op['name']] = int(peer_str) if peer_str else None
+                    peer_res[op['name']] = int(peer_str) if peer_str and peer_str != "—" else None
         else:
             st.caption("אין שחקנים אחרים לדרג עדיין.")
 
