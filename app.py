@@ -1205,23 +1205,37 @@ with tab4:
     # טבלת נקודות ניצחון
     st.markdown("---")
     st.markdown("### 🏅 טבלת נקודות ניצחון")
-    pts_data = [
-        {"שם": p["name"], "ניצחונות": safe_int(p.get("win_points"))}
-        for p in sorted(st.session_state.players, key=lambda x: safe_int(x.get("win_points")), reverse=True)
-        if is_player_active(p)
-    ]
+
+    history = st.session_state.get('game_history', [])
+
+    pts_data = []
+    for p in st.session_state.players:
+        if not is_player_active(p):
+            continue
+        wins = safe_int(p.get("win_points"))
+        games = sum(1 for g in history if p["name"] in g.get("team1", []) + g.get("team2", []))
+        pct = round(wins / games * 100) if games > 0 else 0
+        pts_data.append({"שם": p["name"], "ניצחונות": wins, "משחקים": games, "אחוז": pct})
+
+    pts_data.sort(key=lambda x: (x["אחוז"], x["ניצחונות"]), reverse=True)
+
     if pts_data:
+        max_wins = max(r["ניצחונות"] for r in pts_data) or 1
         for rank, row in enumerate(pts_data, 1):
             medal = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}."
-            bar_w = int(row["ניצחונות"] / max(r["ניצחונות"] for r in pts_data) * 100) if pts_data[0]["ניצחונות"] > 0 else 0
+            bar_w = int(row["ניצחונות"] / max_wins * 100)
+            pct_color = "#22c55e" if row["אחוז"] >= 60 else "#f59e0b" if row["אחוז"] >= 40 else "#94a3b8"
             st.markdown(
-                f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:5px;'>"
-                f"<span style='width:30px;text-align:center;'>{medal}</span>"
-                f"<span style='width:120px;font-size:13px;'>{row['שם']}</span>"
-                f"<div style='flex:1;background:#1e293b;border-radius:4px;height:18px;'>"
-                f"<div style='width:{bar_w}%;background:#3b82f6;border-radius:4px;height:18px;'></div>"
+                f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'>"
+                f"<span style='width:26px;text-align:center;font-size:14px;'>{medal}</span>"
+                f"<span style='width:100px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;'>{row['שם']}</span>"
+                f"<div style='flex:1;background:#1e293b;border-radius:4px;height:16px;'>"
+                f"<div style='width:{bar_w}%;background:#3b82f6;border-radius:4px;height:16px;'></div>"
                 f"</div>"
-                f"<span style='width:30px;text-align:left;font-size:13px;color:#60a5fa;font-weight:bold;'>{row['ניצחונות']}</span>"
+                f"<span style='font-size:12px;color:#60a5fa;font-weight:bold;white-space:nowrap;min-width:40px;text-align:left;'>"
+                f"{row['ניצחונות']}/{row['משחקים']}</span>"
+                f"<span style='font-size:12px;font-weight:bold;color:{pct_color};min-width:36px;text-align:left;'>"
+                f"{row['אחוז']}%</span>"
                 f"</div>",
                 unsafe_allow_html=True
             )
