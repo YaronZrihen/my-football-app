@@ -533,6 +533,12 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
+    # אינדיקציה לאחר שמירה
+    if st.session_state.get('show_save_success'):
+        saved_name = st.session_state.pop('show_save_success')
+        st.success(f"✅ {saved_name} נשמר בהצלחה!")
+        st.markdown("<script>window.scrollTo(0,0);</script>", unsafe_allow_html=True)
+
     st.subheader("עדכון פרטי שחקן")
 
     all_options = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
@@ -627,7 +633,7 @@ with tab3:
         st.markdown("---")
         st.markdown("**דירוג עמיתים** (חובה לכל שחקן):")
 
-        other_players = [p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")]
+        other_players = sorted([p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")], key=lambda p: p['name'].strip().split()[0])
         peer_res = {}
         # exist_peers = מה השחקן נתן לאחרים (נשמר ב-peer_ratings שלו)
         exist_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
@@ -702,8 +708,7 @@ with tab3:
                 # אין צורך לפזר לשורות אחרות
 
                 if save_to_gsheets(st.session_state.players):
-                    # טען מחדש מ-Sheets כדי לוודא שהתצוגה מעודכנת
                     st.session_state.players = load_players()
                     st.session_state.edit_name = f_name.strip()
-                    st.success(f"✅ {f_name} נשמר בהצלחה!")
+                    st.session_state.show_save_success = f_name.strip()
                     st.rerun()
