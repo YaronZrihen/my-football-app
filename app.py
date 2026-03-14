@@ -175,19 +175,32 @@ def star_rating_widget(label: str, key: str, default: int = 5) -> int:
     return int(chosen)
 
 
+def get_player_score(player: dict) -> float:
     """
     חישוב ציון שחקן משוקלל:
     - 60% ציון עצמי
     - 40% ממוצע דירוג עמיתים (אם קיים)
     """
-    self_rating = float(player.get('rating', 5.0))
-    peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
+    try:
+        self_rating = float(player.get('rating') or 5.0)
+    except (ValueError, TypeError):
+        self_rating = 5.0
 
-    if peer_ratings:
-        peers = [float(v) for v in peer_ratings.values() if v]
+    try:
+        peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
+        peers = []
+        if isinstance(peer_ratings, dict):
+            for v in peer_ratings.values():
+                try:
+                    peers.append(float(v))
+                except (ValueError, TypeError):
+                    pass
         avg_peers = sum(peers) / len(peers) if peers else 0
-        return round(self_rating * 0.6 + avg_peers * 0.4, 2)
+    except Exception:
+        avg_peers = 0
 
+    if avg_peers > 0:
+        return round(self_rating * 0.6 + avg_peers * 0.4, 2)
     return round(self_rating, 2)
 
 
