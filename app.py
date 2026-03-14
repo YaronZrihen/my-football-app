@@ -591,7 +591,10 @@ with tab2:
             pnum = p.get('player_num', '')
             pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
 
-            wins = int(p.get("win_points", 0) or 0)
+            try:
+                wins = int(float(p.get("win_points") or 0))
+            except (ValueError, TypeError):
+                wins = 0
             wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}</span>" if wins > 0 else ""
             st.markdown(
                 f"<div class='database-card'>"
@@ -915,8 +918,8 @@ with tab4:
     st.markdown("---")
     st.markdown("### 🏅 טבלת נקודות ניצחון")
     pts_data = [
-        {"שם": p["name"], "ניצחונות": int(p.get("win_points", 0) or 0)}
-        for p in sorted(st.session_state.players, key=lambda x: int(x.get("win_points", 0) or 0), reverse=True)
+        {"שם": p["name"], "ניצחונות": int(float(p.get("win_points") or 0))}
+        for p in sorted(st.session_state.players, key=lambda x: int(float(x.get("win_points") or 0)), reverse=True)
         if is_player_active(p)
     ]
     if pts_data:
