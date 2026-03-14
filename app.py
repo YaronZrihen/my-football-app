@@ -349,22 +349,7 @@ if 'teams_generated' not in st.session_state:
 
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 
-_default_tab = st.session_state.pop('goto_tab', 0)
-# workaround: נשתמש ב-JavaScript להחלפת טאב
 tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
-if _default_tab:
-    st.markdown(
-        f"""<script>
-        window.addEventListener('load', function() {{
-            setTimeout(function() {{
-                var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
-                if (tabs && tabs[{_default_tab}]) tabs[{_default_tab}].click();
-                window.scrollTo(0,0);
-            }}, 150);
-        }});
-        </script>""",
-        unsafe_allow_html=True
-    )
 
 
 # ============================================================
@@ -523,7 +508,7 @@ with tab2:
             with ce:
                 if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
                     st.session_state.edit_name = p['name']
-                    st.session_state.goto_tab = 2
+                    st.session_state.nav_to_edit = True
                     st.rerun()
             with gap:
                 st.empty()
@@ -549,6 +534,10 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
+    # באנר ניווט מהמאגר
+    if st.session_state.pop('nav_to_edit', False):
+        st.info(f"✏️ עורך: **{st.session_state.edit_name}** — גלול למטה לטופס")
+
     # אינדיקציה לאחר שמירה
     if st.session_state.get('show_save_success'):
         saved_name = st.session_state.pop('show_save_success')
