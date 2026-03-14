@@ -299,6 +299,15 @@ def load_players() -> list:
         return []
 
 
+def _update_win_points(winners: list, losers: list, all_players: list):
+    """הוסף נקודת ניצחון לשחקני הקבוצה המנצחת."""
+    for name in winners:
+        idx = next((i for i, p in enumerate(all_players) if p["name"] == name), None)
+        if idx is not None:
+            cur = int(all_players[idx].get("win_points", 0) or 0)
+            all_players[idx]["win_points"] = cur + 1
+
+
 def save_history_to_gsheets(history: list) -> bool:
     """שמירת היסטוריית משחקים לגיליון נפרד ב-Google Sheets."""
     try:
@@ -308,14 +317,16 @@ def save_history_to_gsheets(history: list) -> bool:
             rows.append({
                 "date": game["date"],
                 "team": "לבן",
-                "players": ", ".join(game["team1"]),
-                "avg_score": game["avg1"],
+                "players": ", ".join(game.get("team1", [])),
+                "avg_score": game.get("avg1", 0),
+                "winner": game.get("winner", ""),
             })
             rows.append({
                 "date": game["date"],
                 "team": "שחור",
-                "players": ", ".join(game["team2"]),
-                "avg_score": game["avg2"],
+                "players": ", ".join(game.get("team2", [])),
+                "avg_score": game.get("avg2", 0),
+                "winner": game.get("winner", ""),
             })
         df = pd.DataFrame(rows)
         conn.update(data=df, worksheet="history")
@@ -338,14 +349,17 @@ def load_history_from_gsheets() -> list:
             team = str(row.get("team", ""))
             players = [p.strip() for p in str(row.get("players", "")).split(",") if p.strip()]
             avg = float(row.get("avg_score", 0) or 0)
+            winner = str(row.get("winner", "") or "")
             if date not in history:
-                history[date] = {"date": date, "team1": [], "team2": [], "avg1": 0, "avg2": 0}
+                history[date] = {"date": date, "team1": [], "team2": [], "avg1": 0, "avg2": 0, "winner": ""}
             if team == "לבן":
                 history[date]["team1"] = players
                 history[date]["avg1"] = avg
             else:
                 history[date]["team2"] = players
                 history[date]["avg2"] = avg
+            if winner:
+                history[date]["winner"] = winner
         return sorted(history.values(), key=lambda x: x["date"], reverse=True)
     except Exception:
         return []
@@ -357,7 +371,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active', 'win_points']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -501,17 +515,23 @@ with tab1:
             st.markdown("---")
             game_date = st.date_input("תאריך המשחק:", value=None, key="game_date")
             if st.button("💾 שמור חלוקה להיסטוריה", use_container_width=True, disabled=not game_date):
-                import datetime
                 history = st.session_state.get('game_history', [])
-                history.append({
+                # בדוק אם כבר קיים משחק לאותו תאריך
+                existing = next((i for i, g in enumerate(history) if g["date"] == str(game_date)), None)
+                new_game = {
                     "date": str(game_date),
                     "team1": [p['name'] for p in st.session_state.t1],
                     "team2": [p['name'] for p in st.session_state.t2],
                     "avg1": round(balance_score(st.session_state.t1), 2),
                     "avg2": round(balance_score(st.session_state.t2), 2),
-                })
+                    "winner": history[existing].get("winner", "") if existing is not None else "",
+                }
+                if existing is not None:
+                    history[existing] = new_game
+                else:
+                    history.append(new_game)
+                history = sorted(history, key=lambda x: x["date"], reverse=True)
                 st.session_state.game_history = history
-                # שמור ל-Sheets בגיליון נפרד
                 save_history_to_gsheets(history)
                 st.success(f"✅ חלוקה נשמרה לתאריך {game_date}")
 
@@ -798,36 +818,106 @@ with tab3:
 with tab4:
     st.subheader("היסטוריית משחקים")
 
-    if st.button("🔄 רענן היסטוריה", use_container_width=False):
-        st.session_state.game_history = load_history_from_gsheets()
-        st.rerun()
+    col_r, col_pts = st.columns(2)
+    with col_r:
+        if st.button("🔄 רענן", use_container_width=True):
+            st.session_state.game_history = load_history_from_gsheets()
+            st.rerun()
 
     history = st.session_state.get('game_history', [])
 
     if not history:
         st.info("אין היסטוריה עדיין. שמור חלוקה מטאב החלוקה.")
     else:
-        for game in history:
+        for gi, game in enumerate(history):
             date_str = game.get("date", "")
-            t1 = game.get("team1", [])
-            t2 = game.get("team2", [])
-            avg1 = game.get("avg1", 0)
-            avg2 = game.get("avg2", 0)
+            t1       = game.get("team1", [])
+            t2       = game.get("team2", [])
+            avg1     = game.get("avg1", 0)
+            avg2     = game.get("avg2", 0)
+            winner   = game.get("winner", "")
+
+            # תגי מנצח/מפסיד
+            def team_label(team_name, team_winner):
+                if not team_winner:
+                    return f"{'⚪' if team_name == 'לבן' else '⚫'} {team_name}"
+                if team_name == team_winner:
+                    return f"{'⚪' if team_name == 'לבן' else '⚫'} {team_name} 🏆"
+                return f"{'⚪' if team_name == 'לבן' else '⚫'} {team_name}"
+
+            t1_color = "#22c55e" if winner == "לבן" else "#94a3b8" if winner else "#94a3b8"
+            t2_color = "#22c55e" if winner == "שחור" else "#94a3b8" if winner else "#94a3b8"
 
             st.markdown(
                 f"<div class='database-card'>"
-                f"<div style='font-size:14px;font-weight:bold;color:#60a5fa;margin-bottom:8px;'>📅 {date_str}</div>"
+                f"<div style='font-size:14px;font-weight:bold;color:#60a5fa;margin-bottom:8px;'>📅 {date_str}"
+                f"{'  🏆 מנצח: ' + winner if winner else ''}</div>"
                 f"<div style='display:flex;gap:12px;flex-wrap:wrap;'>"
                 f"<div style='flex:1;min-width:120px;'>"
-                f"<div style='font-size:12px;color:#94a3b8;margin-bottom:4px;'>⚪ לבן — רמה {avg1:.1f}</div>"
+                f"<div style='font-size:12px;color:{t1_color};font-weight:bold;margin-bottom:4px;'>{team_label('לבן', winner)} — רמה {avg1:.1f}</div>"
                 f"<div style='font-size:13px;color:#e2e8f0;'>{', '.join(t1) if t1 else '—'}</div>"
                 f"</div>"
                 f"<div style='flex:1;min-width:120px;'>"
-                f"<div style='font-size:12px;color:#94a3b8;margin-bottom:4px;'>⚫ שחור — רמה {avg2:.1f}</div>"
+                f"<div style='font-size:12px;color:{t2_color};font-weight:bold;margin-bottom:4px;'>{team_label('שחור', winner)} — רמה {avg2:.1f}</div>"
                 f"<div style='font-size:13px;color:#e2e8f0;'>{', '.join(t2) if t2 else '—'}</div>"
                 f"</div>"
                 f"</div>"
                 f"</div>",
                 unsafe_allow_html=True
             )
-            st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+
+            # כפתורי קביעת מנצח
+            cw1, cw2, cw3 = st.columns(3)
+            with cw1:
+                if st.button("🏆 לבן ניצח", key=f"win1_{gi}", use_container_width=True,
+                             type="primary" if winner == "לבן" else "secondary"):
+                    history[gi]["winner"] = "לבן"
+                    st.session_state.game_history = history
+                    # עדכן נקודות לשחקני לבן
+                    _update_win_points(t1, t2, st.session_state.players)
+                    save_history_to_gsheets(history)
+                    save_to_gsheets(st.session_state.players)
+                    st.rerun()
+            with cw2:
+                if st.button("🏆 שחור ניצח", key=f"win2_{gi}", use_container_width=True,
+                             type="primary" if winner == "שחור" else "secondary"):
+                    history[gi]["winner"] = "שחור"
+                    st.session_state.game_history = history
+                    _update_win_points(t2, t1, st.session_state.players)
+                    save_history_to_gsheets(history)
+                    save_to_gsheets(st.session_state.players)
+                    st.rerun()
+            with cw3:
+                if winner and st.button("↩️ בטל תוצאה", key=f"win3_{gi}", use_container_width=True):
+                    history[gi]["winner"] = ""
+                    st.session_state.game_history = history
+                    save_history_to_gsheets(history)
+                    st.rerun()
+
+            st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+
+    # טבלת נקודות ניצחון
+    st.markdown("---")
+    st.markdown("### 🏅 טבלת נקודות ניצחון")
+    pts_data = [
+        {"שם": p["name"], "ניצחונות": int(p.get("win_points", 0) or 0)}
+        for p in sorted(st.session_state.players, key=lambda x: int(x.get("win_points", 0) or 0), reverse=True)
+        if is_player_active(p)
+    ]
+    if pts_data:
+        for rank, row in enumerate(pts_data, 1):
+            medal = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}."
+            bar_w = int(row["ניצחונות"] / max(r["ניצחונות"] for r in pts_data) * 100) if pts_data[0]["ניצחונות"] > 0 else 0
+            st.markdown(
+                f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:5px;'>"
+                f"<span style='width:30px;text-align:center;'>{medal}</span>"
+                f"<span style='width:120px;font-size:13px;'>{row['שם']}</span>"
+                f"<div style='flex:1;background:#1e293b;border-radius:4px;height:18px;'>"
+                f"<div style='width:{bar_w}%;background:#3b82f6;border-radius:4px;height:18px;'></div>"
+                f"</div>"
+                f"<span style='width:30px;text-align:left;font-size:13px;color:#60a5fa;font-weight:bold;'>{row['ניצחונות']}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+    else:
+        st.caption("אין נתוני ניצחונות עדיין.")
