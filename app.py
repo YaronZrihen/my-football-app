@@ -289,7 +289,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'my_ratings', 'active']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -590,13 +590,17 @@ with tab3:
 
         other_players = [p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")]
         peer_res = {}
-        exist_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
+        # exist_peers = מה השחקן הנוכחי נתן לאחרים (נשמר ב-my_ratings)
+        exist_peers = safe_get_json(p_data.get('my_ratings', '{}') if p_data else '{}')
 
         if other_players:
             with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
                 for op in other_players:
                     peer_val = exist_peers.get(op['name'])
-                    peer_default = str(int(float(peer_val))) if peer_val and str(peer_val).replace('.','').isdigit() and int(float(peer_val)) > 0 else None
+                    try:
+                        peer_default = str(int(float(peer_val))) if peer_val and float(peer_val) > 0 else None
+                    except (ValueError, TypeError):
+                        peer_default = None
                     peer_str = st.pills(
                         f"{op['name']} *",
                         options=[str(i) for i in range(1, 11)],
@@ -627,15 +631,23 @@ with tab3:
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
                 # peer_res — שמור רק ערכים שדורגו (> 0), מחק None ו-0
-                clean_peers = {k: v for k, v in peer_res.items() if v is not None and v > 0}
+                # my_ratings = מה אני נתתי לאחרים (לא כולל None ו-0)
+                my_ratings = {k: v for k, v in peer_res.items() if v is not None and v > 0}
+
+                # שמור את ה-peer_ratings הקיים של השחקן (מה אחרים נתנו לו) — לא לדרוס
+                existing_peer_ratings = safe_get_json(
+                    next((p.get('peer_ratings','{}') for p in st.session_state.players if p['name'] == choice), '{}')
+                )
+
                 new_entry = {
                     "name": f_name.strip(),
                     "player_num": auto_num,
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
-                    "peer_ratings": json.dumps(clean_peers, ensure_ascii=False),
+                    "peer_ratings": json.dumps(existing_peer_ratings, ensure_ascii=False),
                     "active": str(f_active),
+                    "my_ratings": json.dumps(my_ratings, ensure_ascii=False),
                 }
 
                 # עדכון או הוספה של השחקן הנוכחי
@@ -651,18 +663,18 @@ with tab3:
                         st.stop()
                     st.session_state.players.append(new_entry)
 
-                # עדכון peer_ratings אצל כל שחקן שדורג ע"י השחקן הנוכחי
-                # clean_peers = {שם_שחקן: ציון} — צריך להוסיף את הציון אצל כל אחד מהם
+                # עדכון peer_ratings אצל כל שחקן שדורג:
+                # הציון שנתתי לדוד נשמר אצל דוד תחת peer_ratings[שמי]
                 editor_name = f_name.strip()
-                for rated_name, rating_val in clean_peers.items():
+                for rated_name, rating_val in my_ratings.items():
                     target_idx = next(
                         (i for i, x in enumerate(st.session_state.players) if x['name'] == rated_name),
                         None
                     )
                     if target_idx is not None:
-                        existing_pr = safe_get_json(st.session_state.players[target_idx].get('peer_ratings', '{}'))
-                        existing_pr[editor_name] = rating_val
-                        st.session_state.players[target_idx]['peer_ratings'] = json.dumps(existing_pr, ensure_ascii=False)
+                        target_pr = safe_get_json(st.session_state.players[target_idx].get('peer_ratings', '{}'))
+                        target_pr[editor_name] = rating_val
+                        st.session_state.players[target_idx]['peer_ratings'] = json.dumps(target_pr, ensure_ascii=False)
 
                 if save_to_gsheets(st.session_state.players):
                     st.success(f"✅ {f_name} נשמר בהצלחה!")
