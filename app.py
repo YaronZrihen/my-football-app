@@ -1,206 +1,527 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from datetime import datetime, date
+import json
+import random
 
-# --- 1. הגדרות דף ועיצוב (RTL מלא) ---
-st.set_page_config(page_title="ניהול כדורגל וולפסון", layout="centered")
+# ============================================================
+# 1. הגדרות עמוד ו-CSS
+# ============================================================
+st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
 st.markdown("""
-    <style>
-    /* הגדרות כיוון מימין לשמאל */
-    .stApp { direction: rtl; text-align: right; }
-    div[data-testid="stVerticalBlock"] { direction: rtl; }
-    h1, h2, h3, h4, p, label, .stSelectbox, .stTextInput, .stNumberInput { 
-        text-align: right !important; direction: rtl !important; 
-    }
-    
-    /* עיצוב טאבים */
-    .stTabs [data-baseweb="tab-list"] { direction: rtl; justify-content: flex-end; gap: 10px; }
-    .stTabs [data-baseweb="tab"] { 
-        background-color: #f1f5f9; border-radius: 8px 8px 0 0; padding: 10px 25px; 
-    }
-    
-    /* עיצוב כפתורים כחולים וגדולים */
-    .stButton button { 
-        width: 100%; border-radius: 12px; height: 3.5em; 
-        background-color: #2563eb; color: white; font-weight: bold; border: none;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s;
-    }
-    .stButton button:hover { background-color: #1d4ed8; color: white; transform: translateY(-2px); }
-    
-    /* כרטיסי שחקנים ברשימה */
-    .player-card { 
-        background: #ffffff; padding: 15px; border-radius: 12px; 
-        margin-bottom: 10px; border-right: 6px solid #3b82f6; 
-        display: flex; justify-content: space-between; align-items: center;
-        flex-direction: row-reverse; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border: 1px solid #e2e8f0;
-    }
+<style>
+/* ===== בסיס ===== */
+.stApp {
+    background-color: #0f1117;
+    color: #e2e8f0;
+    direction: rtl;
+    text-align: right;
+}
+h1, h2, h3, p, label, span, div {
+    text-align: right !important;
+    direction: rtl;
+}
+.block-container { padding: 12px !important; max-width: 700px; margin: auto; }
 
-    /* כרטיסי קבוצות בחלוקה */
-    .team-container {
-        background: #ffffff; padding: 20px; border-radius: 15px;
-        border: 2px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        margin-top: 20px;
-    }
-    .white-team-header { border-top: 10px solid #cbd5e1; border-radius: 15px 15px 0 0; }
-    .black-team-header { border-top: 10px solid #1e293b; border-radius: 15px 15px 0 0; }
-    
-    /* טבלאות */
-    .stTable { direction: rtl; }
-    </style>
-    """, unsafe_allow_html=True)
+/* ===== כותרת ===== */
+.main-title {
+    font-size: 26px;
+    text-align: center !important;
+    font-weight: bold;
+    margin-bottom: 18px;
+    color: #60a5fa;
+    letter-spacing: 1px;
+}
 
-# --- 2. חיבור ופונקציות נתונים ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+/* ===== כרטיס שחקן במאגר ===== */
+.database-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+}
+.card-name { font-size: 16px; font-weight: bold; color: #f1f5f9; }
+.card-detail { font-size: 13px; color: #94a3b8; margin-top: 3px; }
 
-def get_sheet_data(sheet_name, columns):
+/* ===== שחקן בחלוקה ===== */
+.p-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 38px;
+    font-size: 14px;
+}
+.p-score { color: #22c55e; font-size: 12px; font-weight: bold; }
+
+/* ===== סטטיסטיקות קבוצה ===== */
+.team-stats {
+    background: #0f172a;
+    border-top: 2px solid #334155;
+    padding: 8px;
+    margin-top: 6px;
+    font-size: 12px;
+    text-align: center;
+    border-radius: 0 0 10px 10px;
+}
+.team-header {
+    background: #1e3a5f;
+    border-radius: 8px 8px 0 0;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* ===== Pills ===== */
+div[data-testid="stPills"] button {
+    background-color: #334155 !important;
+    color: #cbd5e1 !important;
+    border-radius: 20px !important;
+    font-size: 13px !important;
+}
+div[data-testid="stPills"] button[aria-checked="true"] {
+    background-color: #3b82f6 !important;
+    color: white !important;
+    border: 1px solid #93c5fd !important;
+}
+
+/* ===== כפתורים ===== */
+.stButton button {
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    transition: all 0.2s;
+}
+
+/* ===== רספונסיבי למובייל ===== */
+@media (max-width: 480px) {
+    .main-title { font-size: 20px; }
+    .p-box { font-size: 12px; padding: 4px 8px; }
+    .block-container { padding: 6px !important; }
+}
+
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ============================================================
+# 2. פונקציות עזר
+# ============================================================
+
+def safe_split(val: str) -> list:
+    """פיצול מחרוזת לרשימה, עם טיפול בערכים ריקים."""
+    if not val or pd.isna(val):
+        return []
+    return [x.strip() for x in str(val).split(',') if x.strip()]
+
+
+def safe_get_json(val) -> dict:
+    """המרה בטוחה ל-dict מ-JSON או dict קיים."""
+    if not val or (isinstance(val, float) and pd.isna(val)):
+        return {}
+    if isinstance(val, dict):
+        return val
     try:
-        df = conn.read(worksheet=sheet_name, ttl="0")
-        if df is None or df.empty: return pd.DataFrame(columns=columns)
-        df.columns = [c.strip() for c in df.columns]
-        return df.dropna(subset=['name'])
-    except:
-        return pd.DataFrame(columns=columns)
+        return json.loads(str(val))
+    except (json.JSONDecodeError, TypeError):
+        return {}
 
-# --- 3. ניהול מצב האפליקציה (Session State) ---
-# טעינת המאגר לזיכרון
-if 'master_players' not in st.session_state:
-    df_p = get_sheet_data("Football_DB", ["name", "rating", "birth_year"])
-    st.session_state.master_players = df_p.to_dict('records')
 
-# זיכרון לחלוקת קבוצות (כדי שלא ייעלם במעבר טאבים)
-if 'last_split' not in st.session_state:
-    st.session_state.last_split = None
+def get_player_score(player: dict) -> float:
+    """
+    חישוב ציון שחקן משוקלל:
+    - 60% ציון עצמי
+    - 40% ממוצע דירוג עמיתים (אם קיים)
+    """
+    self_rating = float(player.get('rating', 5.0))
+    peer_ratings = safe_get_json(player.get('peer_ratings', '{}'))
 
-# --- 4. כותרת המערכת ---
-st.markdown("<h1 style='text-align: center; color: #1e3a8a;'>⚽ ניהול מועדון כדורגל וולפסון</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center;'>רישום, חלוקת קבוצות מאוזנת וניהול גבייה</p>", unsafe_allow_html=True)
+    if peer_ratings:
+        peers = [float(v) for v in peer_ratings.values() if v]
+        avg_peers = sum(peers) / len(peers) if peers else 0
+        return round(self_rating * 0.6 + avg_peers * 0.4, 2)
 
-# יצירת הטאבים
-t_reg, t_split, t_pay, t_db = st.tabs(["📝 רישום שחקנים", "🏃 חלוקת קבוצות", "💰 תשלומים", "⚙️ ניהול מאגר"])
+    return round(self_rating, 2)
 
-# --- 5. טאב רישום ---
-with t_reg:
-    game_date = st.date_input("תאריך המשחק:", date.today()).strftime("%d/%m/%Y")
-    history_df = get_sheet_data("arrivals_history", ["name", "match_date", "paid", "temp_rating"])
-    
-    col_reg1, col_reg2 = st.columns(2)
-    
-    with col_reg1:
-        st.subheader("שחקן מאגר")
-        with st.form("reg_member", clear_on_submit=True):
-            p_name = st.selectbox("בחר שם:", [""] + sorted([p['name'] for p in st.session_state.master_players]))
-            if st.form_submit_button("רשום למשחק ✅") and p_name:
-                if not ((history_df['name'] == p_name) & (history_df['match_date'] == game_date)).any():
-                    new_entry = pd.DataFrame([{"name": p_name, "match_date": game_date, "paid": "לא"}])
-                    conn.update(worksheet="arrivals_history", data=pd.concat([history_df, new_entry], ignore_index=True))
-                    st.success(f"{p_name} נרשם!")
+
+def get_player_age(player: dict) -> int:
+    """חישוב גיל שחקן."""
+    return 2026 - int(player.get('birth_year', 1995))
+
+
+def balance_score(team: list) -> float:
+    """חישוב ציון ממוצע לקבוצה."""
+    if not team:
+        return 0.0
+    return sum(p['score'] for p in team) / len(team)
+
+
+# ============================================================
+# 3. אלגוריתם חלוקה חכם (Snake Draft + אופטימיזציה)
+# ============================================================
+
+def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
+    """
+    חלוקה מאוזנת בשיטת Snake Draft + 100 סיבובי אופטימיזציה.
+
+    Snake Draft: 1→t1, 2→t2, 3→t2, 4→t1, 5→t1, 6→t2 ...
+    לאחר מכן מנסים להחליף שחקנים בין הקבוצות ולשפר איזון.
+    """
+    # בניית pool עם ציונים
+    pool = []
+    for name in selected_names:
+        p = next((x for x in players_data if x['name'] == name), None)
+        if p:
+            pool.append({
+                'name': name,
+                'score': get_player_score(p),
+                'age': get_player_age(p)
+            })
+
+    # מיון לפי ציון יורד
+    pool.sort(key=lambda x: x['score'], reverse=True)
+
+    t1, t2 = [], []
+    for i, player in enumerate(pool):
+        # Snake Draft pattern: 0→t1, 1→t2, 2→t2, 3→t1, 4→t1, 5→t2...
+        block = i // 2
+        pos_in_block = i % 2
+        if block % 2 == 0:
+            (t1 if pos_in_block == 0 else t2).append(player)
+        else:
+            (t2 if pos_in_block == 0 else t1).append(player)
+
+    # אופטימיזציה: ניסיון החלפות לשיפור איזון
+    improved = True
+    iterations = 0
+    while improved and iterations < 200:
+        improved = False
+        iterations += 1
+        for i in range(len(t1)):
+            for j in range(len(t2)):
+                diff_before = abs(balance_score(t1) - balance_score(t2))
+                # ניסיון החלפה
+                t1[i], t2[j] = t2[j], t1[i]
+                diff_after = abs(balance_score(t1) - balance_score(t2))
+                if diff_after < diff_before:
+                    improved = True  # שיפור! נשמור את ההחלפה
+                else:
+                    t1[i], t2[j] = t2[j], t1[i]  # ביטול החלפה
+
+    return t1, t2
+
+
+# ============================================================
+# 4. חיבור ל-Google Sheets
+# ============================================================
+
+@st.cache_resource
+def get_connection():
+    return st.connection("gsheets", type=GSheetsConnection)
+
+
+def load_players() -> list:
+    """טעינת שחקנים מ-Google Sheets."""
+    try:
+        conn = get_connection()
+        df = conn.read(ttl=300)  # cache ל-5 דקות
+        return df.dropna(subset=['name']).to_dict(orient='records')
+    except Exception as e:
+        st.warning(f"⚠️ שגיאה בטעינת נתונים: {e}")
+        return []
+
+
+def save_to_gsheets(players: list) -> bool:
+    """שמירה ל-Google Sheets עם טיפול בשגיאות."""
+    try:
+        conn = get_connection()
+        df = pd.DataFrame(players)
+        conn.update(data=df)
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"❌ שגיאת שמירה: {e}")
+        return False
+
+
+# ============================================================
+# 5. אתחול Session State
+# ============================================================
+
+if 'players' not in st.session_state:
+    st.session_state.players = load_players()
+
+if 'edit_name' not in st.session_state:
+    st.session_state.edit_name = "🆕 שחקן חדש"
+
+if 'teams_generated' not in st.session_state:
+    st.session_state.teams_generated = False
+
+
+# ============================================================
+# 6. ממשק ראשי
+# ============================================================
+
+st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
+
+tab1, tab2, tab3 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה"])
+
+
+# ============================================================
+# TAB 1: חלוקת קבוצות
+# ============================================================
+with tab1:
+    all_names = sorted([p['name'] for p in st.session_state.players])
+
+    if not all_names:
+        st.info("אין שחקנים במאגר. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
+    else:
+        selected_names = st.pills(
+            "בחר שחקנים שהגיעו:",
+            all_names,
+            selection_mode="multi",
+            key="p_selection"
+        )
+
+        count = len(selected_names) if selected_names else 0
+        color = "#22c55e" if count >= 6 else "#f59e0b" if count >= 2 else "#ef4444"
+        st.markdown(f"<p style='color:{color}; font-weight:bold;'>נבחרו: {count} שחקנים</p>",
+                    unsafe_allow_html=True)
+
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            divide_clicked = st.button("חלק קבוצות 🚀", use_container_width=True,
+                                       disabled=count < 2)
+        with col_btn2:
+            reshuffle_clicked = st.button("ערבב מחדש 🔀", use_container_width=True,
+                                          disabled=count < 2)
+
+        if divide_clicked or reshuffle_clicked:
+            if selected_names:
+                t1, t2 = divide_teams(selected_names, st.session_state.players)
+                st.session_state.t1 = t1
+                st.session_state.t2 = t2
+                st.session_state.teams_generated = True
+
+        # הצגת קבוצות
+        if st.session_state.teams_generated and selected_names and \
+                't1' in st.session_state and 't2' in st.session_state:
+
+            diff = abs(balance_score(st.session_state.t1) - balance_score(st.session_state.t2))
+            balance_color = "#22c55e" if diff < 0.5 else "#f59e0b" if diff < 1.0 else "#ef4444"
+            st.markdown(
+                f"<p style='text-align:center; color:{balance_color}; font-size:13px;'>"
+                f"פער בין קבוצות: {diff:.2f}</p>",
+                unsafe_allow_html=True
+            )
+
+            col_w, col_b = st.columns(2)
+            teams_data = [
+                {"team_key": "t1", "label": "⚪ לבן"},
+                {"team_key": "t2", "label": "⚫ שחור"}
+            ]
+
+            for col, data in zip([col_w, col_b], teams_data):
+                with col:
+                    team = st.session_state[data["team_key"]]
+                    st.markdown(
+                        f"<div class='team-header'>{data['label']} ({len(team)})</div>",
+                        unsafe_allow_html=True
+                    )
+                    for i, player in enumerate(team):
+                        c_txt, c_swp = st.columns([4, 1])
+                        with c_txt:
+                            st.markdown(
+                                f"<div class='p-box'>"
+                                f"<span>{player['name']} ({player['age']})</span>"
+                                f"<span class='p-score'>{player['score']:.1f}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        with c_swp:
+                            other_key = "t2" if data["team_key"] == "t1" else "t1"
+                            if st.button("🔄", key=f"sw_{data['team_key']}_{i}"):
+                                moved = st.session_state[data["team_key"]].pop(i)
+                                st.session_state[other_key].append(moved)
+                                st.rerun()
+
+                    if team:
+                        avg_score = balance_score(team)
+                        avg_age = sum(p['age'] for p in team) / len(team)
+                        st.markdown(
+                            f"<div class='team-stats'>"
+                            f"<b>רמה: {avg_score:.1f}</b> | גיל ממוצע: {avg_age:.1f}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+
+# ============================================================
+# TAB 2: מאגר שחקנים
+# ============================================================
+with tab2:
+    st.subheader(f"מאגר שחקנים ({len(st.session_state.players)})")
+
+    if not st.session_state.players:
+        st.info("המאגר ריק. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
+    else:
+        # חיפוש
+        search = st.text_input("🔍 חפש שחקן:", placeholder="הקלד שם...")
+        filtered = [
+            p for p in st.session_state.players
+            if not search or search.lower() in p['name'].lower()
+        ]
+
+        # מיון לפי ציון
+        filtered_with_scores = sorted(
+            filtered,
+            key=lambda p: get_player_score(p),
+            reverse=True
+        )
+
+        for i, p in enumerate(filtered_with_scores):
+            score = get_player_score(p)
+            age = get_player_age(p)
+            roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
+
+            # צבע לפי ציון
+            score_color = "#22c55e" if score >= 7 else "#f59e0b" if score >= 5 else "#ef4444"
+
+            st.markdown(
+                f"<div class='database-card'>"
+                f"<div class='card-name'>{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span></div>"
+                f"<div class='card-detail'>"
+                f"ציון: <span style='color:{score_color}; font-weight:bold;'>{score:.1f}</span> "
+                f"| תפקידים: {roles}"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            ce, cd = st.columns([4, 1])
+            with ce:
+                if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
+                    st.session_state.edit_name = p['name']
+                    st.rerun()
+            with cd:
+                if st.button("🗑️", key=f"db_dl_{p['name']}", use_container_width=True):
+                    st.session_state.players = [
+                        x for x in st.session_state.players if x['name'] != p['name']
+                    ]
+                    save_to_gsheets(st.session_state.players)
                     st.rerun()
 
-    with col_reg2:
-        st.subheader("אורח / חדש")
-        with st.form("reg_guest", clear_on_submit=True):
-            g_name = st.text_input("שם האורח:")
-            g_rate = st.slider("דירוג יכולת:", 1.0, 10.0, 5.0, step=0.5)
-            if st.form_submit_button("הוסף אורח ⭐") and g_name:
-                new_guest = pd.DataFrame([{"name": f"⭐ {g_name}", "match_date": game_date, "temp_rating": g_rate, "paid": "לא"}])
-                conn.update(worksheet="arrivals_history", data=pd.concat([history_df, new_guest], ignore_index=True))
-                st.success(f"האורח {g_name} נוסף!")
-                st.rerun()
+            st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
 
-    st.divider()
-    current_players = history_df[history_df['match_date'] == game_date]
-    st.subheader(f"רשימת רשומים ({len(current_players)})")
-    
-    for i, row in current_players.iterrows():
-        c_p, c_d = st.columns([0.85, 0.15])
-        c_p.markdown(f"<div class='player-card'><span>{row['name']}</span></div>", unsafe_allow_html=True)
-        if c_d.button("❌", key=f"del_{i}"):
-            updated = history_df.drop(i)
-            conn.update(worksheet="arrivals_history", data=updated)
-            st.rerun()
 
-# --- 6. טאב חלוקה ---
-with t_split:
-    st.subheader("חלוקה אוטומטית מאוזנת")
-    
-    if not current_players.empty:
-        if st.button("בצע חלוקת קבוצות 🚀"):
-            # איסוף נתונים ודירוגים
-            pool = []
-            for _, r in current_players.iterrows():
-                name = r['name']
-                if name.startswith("⭐"):
-                    rating = float(r.get('temp_rating', 5.0))
+# ============================================================
+# TAB 3: עדכון / הרשמה
+# ============================================================
+with tab3:
+    st.subheader("עדכון פרטי שחקן")
+
+    all_options = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
+    default_idx = (
+        all_options.index(st.session_state.edit_name)
+        if st.session_state.edit_name in all_options
+        else 0
+    )
+    choice = st.selectbox("בחר שחקן:", all_options, index=default_idx)
+
+    p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
+
+    with st.form("edit_form", clear_on_submit=False):
+        f_name = st.text_input(
+            "שם מלא *",
+            value=p_data['name'] if p_data else "",
+            placeholder="הכנס שם מלא"
+        )
+        f_year = st.number_input(
+            "שנת לידה:",
+            min_value=1950,
+            max_value=2015,
+            value=int(p_data['birth_year']) if p_data else 1990
+        )
+
+        # תפקידים
+        ROLES = ["שוער", "בלם", "מגן", "קשר אחורי", "קשר קדמי", "כנף", "חלוץ"]
+        existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
+        f_roles = st.pills(
+            "תפקידים:",
+            ROLES,
+            selection_mode="multi",
+            default=[r for r in existing_roles if r in ROLES]
+        )
+
+        f_rate = st.select_slider(
+            "ציון עצמי (1-10):",
+            options=list(range(1, 11)),
+            value=int(p_data.get('rating', 5)) if p_data else 5
+        )
+
+        # דירוג עמיתים — רק אם יש שחקנים אחרים
+        st.markdown("---")
+        st.markdown("**דירוג עמיתים** (אופציונלי):")
+
+        other_players = [p for p in st.session_state.players if p['name'] != (p_data['name'] if p_data else "")]
+        peer_res = {}
+        exist_peers = safe_get_json(p_data.get('peer_ratings', '{}') if p_data else '{}')
+
+        if other_players:
+            # הצגה ב-expander כדי לא להעמיס את הטופס
+            with st.expander(f"דרג {len(other_players)} שחקנים (לחץ להרחבה)"):
+                for op in other_players:
+                    peer_res[op['name']] = st.select_slider(
+                        f"{op['name']}:",
+                        options=list(range(1, 11)),
+                        value=int(exist_peers.get(op['name'], 5)),
+                        key=f"pr_{op['name']}"
+                    )
+        else:
+            st.caption("אין שחקנים אחרים לדרג עדיין.")
+
+        submitted = st.form_submit_button("💾 שמור", use_container_width=True)
+
+        if submitted:
+            if not f_name.strip():
+                st.error("❌ יש להזין שם שחקן.")
+            else:
+                roles_str = ",".join(f_roles) if f_roles else ""
+                new_entry = {
+                    "name": f_name.strip(),
+                    "birth_year": f_year,
+                    "rating": f_rate,
+                    "roles": roles_str,
+                    "peer_ratings": json.dumps(peer_res, ensure_ascii=False)
+                }
+
+                # עדכון או הוספה
+                existing_idx = next(
+                    (i for i, x in enumerate(st.session_state.players) if x['name'] == choice),
+                    None
+                )
+                if existing_idx is not None:
+                    st.session_state.players[existing_idx] = new_entry
                 else:
-                    p_info = next((p for p in st.session_state.master_players if p['name'] == name), {'rating': 5.0})
-                    rating = float(p_info.get('rating', 5.0))
-                pool.append({'name': name, 'rating': rating})
-            
-            # אלגוריתם Snake Draft לאיזון מקסימלי
-            pool.sort(key=lambda x: x['rating'], reverse=True)
-            white, black = [], []
-            for idx, player in enumerate(pool):
-                if idx % 2 == 0: white.append(player)
-                else: black.append(player)
-            
-            st.session_state.last_split = {"white": white, "black": black}
+                    # בדיקה שהשם לא כבר קיים
+                    if any(p['name'] == f_name.strip() for p in st.session_state.players):
+                        st.error("❌ שחקן עם שם זה כבר קיים.")
+                        st.stop()
+                    st.session_state.players.append(new_entry)
 
-        # הצגת תוצאות החלוקה
-        if st.session_state.last_split:
-            tw, tb = st.session_state.last_split["white"], st.session_state.last_split["black"]
-            cw, cb = st.columns(2)
-            
-            with cw:
-                st.markdown("<div class='team-container white-team-header'>", unsafe_allow_html=True)
-                st.markdown("### ⚪ לבנים")
-                for p in tw: st.write(f"🏃 {p['name']} ({p['rating']})")
-                st.markdown(f"**חוזק קבוצה:** {round(sum(p['rating'] for p in tw), 1)}")
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            with cb:
-                st.markdown("<div class='team-container black-team-header'>", unsafe_allow_html=True)
-                st.markdown("### ⚫ שחורים")
-                for p in tb: st.write(f"🏃 {p['name']} ({p['rating']})")
-                st.markdown(f"**חוזק קבוצה:** {round(sum(p['rating'] for p in tb), 1)}")
-                st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.info("אין שחקנים רשומים לחלוקה. חזור לרישום.")
-
-# --- 7. טאב תשלומים ---
-with t_pay:
-    st.subheader("מעקב תשלומים וגבייה")
-    not_paid_list = current_players[current_players['paid'] != "כן"]
-    
-    if not not_paid_list.empty:
-        p_to_pay = st.selectbox("מי שילם?", [""] + not_paid_list['name'].tolist())
-        if st.button("עדכן ששולם 💰") and p_to_pay:
-            full_history = get_sheet_data("arrivals_history", [])
-            full_history.loc[(full_history.name == p_to_pay) & (full_history.match_date == game_date), 'paid'] = "כן"
-            conn.update(worksheet="arrivals_history", data=full_history)
-            st.success(f"התשלום של {p_to_pay} עודכן בהצלחה")
-            st.rerun()
-    
-    st.markdown("### סטטוס תשלומים נוכחי")
-    st.table(current_players[['name', 'paid']])
-
-# --- 8. טאב ניהול מאגר ---
-with t_db:
-    st.subheader("מאגר השחקנים הקבוע")
-    master_df = pd.DataFrame(st.session_state.master_players)
-    st.dataframe(master_df[['name', 'rating', 'birth_year']], use_container_width=True)
-    
-    with st.expander("הוספת שחקן חדש למאגר"):
-        with st.form("new_db_player", clear_on_submit=True):
-            new_n = st.text_input("שם מלא:")
-            new_r = st.slider("דירוג ראשוני:", 1.0, 10.0, 5.0)
-            new_y = st.number_input("שנת לידה:", 1960, 2020, 1990)
-            if st.form_submit_button("שמור במאגר"):
-                if new_n:
-                    new_player = pd.DataFrame([{"name": new_n, "rating": new_r, "birth_year": new_y}])
-                    conn.update(worksheet="Football_DB", data=pd.concat([master_df, new_player], ignore_index=True))
-                    st.success("השחקן נוסף למאגר!")
+                if save_to_gsheets(st.session_state.players):
+                    st.success(f"✅ {f_name} נשמר בהצלחה!")
+                    st.session_state.edit_name = f_name.strip()
                     st.rerun()
