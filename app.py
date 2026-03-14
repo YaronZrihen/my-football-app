@@ -431,23 +431,40 @@ with tab2:
         )
 
         for i, p in enumerate(filtered_with_scores):
-            score = get_player_score(p)
             age = get_player_age(p)
             roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
-
-            # צבע לפי ציון
-            score_color = "#22c55e" if score >= 7 else "#f59e0b" if score >= 5 else "#ef4444"
-
             is_active = is_player_active(p)
-            active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:6px;'>לא פעיל</span>"
+
+            # ציון אישי
+            self_rating = float(p.get('rating', 0) or 0)
+            # ציון קבוצתי (ממוצע עמיתים)
+            peer_ratings = safe_get_json(p.get('peer_ratings', '{}'))
+            peers = [float(v) for v in peer_ratings.values() if v and str(v).replace('.','').isdigit() and float(v) > 0]
+            peer_avg = round(sum(peers) / len(peers), 1) if peers else None
+            # ציון משוכלל
+            weighted = get_player_score(p)
+
+            def score_color(s): return "#22c55e" if s >= 7 else "#f59e0b" if s >= 5 else "#ef4444"
+            def score_badge(label, val):
+                if val is None: return f"<span style='color:#4a5568;font-size:12px;'>{label}: —</span>"
+                c = score_color(val)
+                return f"<span style='font-size:12px;'>{label}: <b style='color:{c};'>{val:.1f}</b></span>"
+
+            active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;'>לא פעיל</span>"
             pnum = p.get('player_num', '')
-            pnum_str = f"<span style='color:#60a5fa; font-size:12px; margin-left:6px;'>#{pnum}</span>" if pnum else ""
+            pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
+
             st.markdown(
                 f"<div class='database-card'>"
-                f"<div class='card-name'>{pnum_str}{p['name']} <span style='color:#94a3b8; font-size:13px;'>({age})</span> {active_badge}</div>"
-                f"<div class='card-detail'>"
-                f"ציון: <span style='color:{score_color}; font-weight:bold;'>{score:.1f}</span> "
-                f"| תפקידים: {roles}"
+                f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
+                f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge}</div>"
+                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}</div>"
+                f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
+                f"{score_badge('אישי', self_rating if self_rating > 0 else None)}"
+                f"<span style='color:#4a5568;font-size:12px;'>|</span>"
+                f"{score_badge('קבוצתי', peer_avg)}"
+                f"<span style='color:#4a5568;font-size:12px;'>|</span>"
+                f"<span style='font-size:12px;'>משוכלל: <b style='color:{score_color(weighted)};font-size:13px;'>{weighted:.1f}</b></span>"
                 f"</div>"
                 f"</div>",
                 unsafe_allow_html=True
