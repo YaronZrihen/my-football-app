@@ -294,7 +294,7 @@ def save_to_gsheets(players: list) -> bool:
             if col not in df.columns:
                 df[col] = ''
         df = df[required_cols]
-        st.write("🔍 debug — שומר:", df.shape, "שורות")  # debug זמני
+
         conn.update(data=df)
         st.cache_data.clear()
         return True
@@ -638,7 +638,7 @@ with tab3:
                     "active": str(f_active),
                 }
 
-                # עדכון או הוספה
+                # עדכון או הוספה של השחקן הנוכחי
                 existing_idx = next(
                     (i for i, x in enumerate(st.session_state.players) if x['name'] == choice),
                     None
@@ -646,11 +646,23 @@ with tab3:
                 if existing_idx is not None:
                     st.session_state.players[existing_idx] = new_entry
                 else:
-                    # בדיקה שהשם לא כבר קיים
                     if any(p['name'] == f_name.strip() for p in st.session_state.players):
                         st.error("❌ שחקן עם שם זה כבר קיים.")
                         st.stop()
                     st.session_state.players.append(new_entry)
+
+                # עדכון peer_ratings אצל כל שחקן שדורג ע"י השחקן הנוכחי
+                # clean_peers = {שם_שחקן: ציון} — צריך להוסיף את הציון אצל כל אחד מהם
+                editor_name = f_name.strip()
+                for rated_name, rating_val in clean_peers.items():
+                    target_idx = next(
+                        (i for i, x in enumerate(st.session_state.players) if x['name'] == rated_name),
+                        None
+                    )
+                    if target_idx is not None:
+                        existing_pr = safe_get_json(st.session_state.players[target_idx].get('peer_ratings', '{}'))
+                        existing_pr[editor_name] = rating_val
+                        st.session_state.players[target_idx]['peer_ratings'] = json.dumps(existing_pr, ensure_ascii=False)
 
                 if save_to_gsheets(st.session_state.players):
                     st.success(f"✅ {f_name} נשמר בהצלחה!")
