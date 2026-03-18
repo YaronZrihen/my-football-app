@@ -766,20 +766,6 @@ if _qp_player and _qp_pin:
         st.warning("⚠️ קישור לא תקין או קוד שגוי")
         st.query_params.clear()
 
-# ---- handler החלפת שחקן בחלוקה ----
-_sw_req = st.query_params.get("_sw", "")
-if _sw_req and 't1' in st.session_state and 't2' in st.session_state:
-    try:
-        _sw_tk2, _sw_i2 = _sw_req.split("_", 1)
-        _sw_i2 = int(_sw_i2)
-        if _sw_tk2 == "t1" and _sw_i2 < len(st.session_state.t1):
-            st.session_state.t2.append(st.session_state.t1.pop(_sw_i2))
-        elif _sw_tk2 == "t2" and _sw_i2 < len(st.session_state.t2):
-            st.session_state.t1.append(st.session_state.t2.pop(_sw_i2))
-    except: pass
-    st.query_params.clear()
-    st.rerun()
-
 # ---- handlers למאגר (query params) ----
 _db_action = st.query_params.get("db_action", "")
 if _db_action:
@@ -872,25 +858,51 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                rows = ""
+                # CSS שמכווץ כפתורי החלפה לגובה השורה
+                st.markdown("""
+                <style>
+                .swap-btn-row > div[data-testid="stButton"] > button {
+                    padding: 4px 8px !important;
+                    font-size: 12px !important;
+                    min-height: 0 !important;
+                    height: auto !important;
+                    line-height: 1.2 !important;
+                    background: #334155 !important;
+                    color: #94a3b8 !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    width: auto !important;
+                }
+                .swap-btn-row > div[data-testid="stButton"] {
+                    display: inline-block !important;
+                    width: auto !important;
+                }
+                </style>""", unsafe_allow_html=True)
+
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
-                    rows += (
+                    other_tk = "t2" if tk == "t1" else "t1"
+                    # שורת מידע
+                    st.markdown(
                         f"<div style='display:flex;align-items:center;background:#1e293b;"
-                        f"border-radius:6px;padding:9px 12px;margin-bottom:4px;"
-                        f"direction:rtl;gap:6px;'>"
+                        f"border-radius:6px 6px 0 0;padding:9px 12px 9px 8px;"
+                        f"direction:rtl;gap:6px;margin-bottom:0;'>"
                         f"<span style='color:#60a5fa;font-size:12px;min-width:26px;'>{pnum_s}</span>"
                         f"<span style='flex:1;font-size:15px;font-weight:bold;'>{p['name']} "
                         f"<span style='color:#64748b;font-size:12px;font-weight:normal;'>({p['age']})</span></span>"
-                        f"<span style='color:{sc};font-size:14px;font-weight:bold;min-width:28px;text-align:center;'>{p['score']:.1f}</span>"
-                        f"<a href='?_sw={tk}_{i}' target='_top' style='color:#94a3b8;font-size:12px;"
-                        f"text-decoration:none;white-space:nowrap;padding:3px 6px;"
-                        f"background:#334155;border-radius:4px;'>החלף</a>"
-                        f"</div>"
+                        f"<span style='color:{sc};font-size:14px;font-weight:bold;'>{p['score']:.1f}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
                     )
-                st.markdown(rows, unsafe_allow_html=True)
+                    # כפתור החלף מתחת לשורה — מרווח אפס
+                    st.markdown("<div class='swap-btn-row' style='background:#1e293b;border-radius:0 0 6px 6px;padding:2px 8px 6px;margin-bottom:4px;text-align:left;'>", unsafe_allow_html=True)
+                    if st.button("↔ החלף", key=f"sw_{tk}_{i}"):
+                        moved = st.session_state[tk].pop(i)
+                        st.session_state[other_tk].append(moved)
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
 
             render_team(t1, "t1", "#1e3a5f", "⚪ לבן")
             render_team(t2, "t2", "#3a1e1e", "⚫ שחור")
