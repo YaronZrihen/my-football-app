@@ -858,8 +858,13 @@ with tab2:
             )
 
             import urllib.parse as _up
-            player_pin   = str(p.get('pin','') or '')
-            player_phone = str(p.get('phone','') or '')
+            import math as _m
+            def _sp(v):
+                s = str(v or '')
+                try: return '' if _m.isnan(float(s)) else s
+                except: return '' if s.lower() in ('nan','none') else s
+            player_pin   = _sp(p.get('pin',''))
+            player_phone = _sp(p.get('phone',''))
             app_url      = "https://my-football-app.streamlit.app"
             toggle_label = "🔴" if is_active else "🟢"
 
@@ -998,7 +1003,38 @@ with tab3:
 
     with st.form("edit_form", clear_on_submit=False):
         # מספר שחקן — מעל השם
-        st.markdown(f"<div style='color:#94a3b8; font-size:14px; margin-bottom:4px;'>מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='color:#94a3b8;font-size:14px;margin-bottom:2px;'>"
+            f"מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>",
+            unsafe_allow_html=True
+        )
+
+        # PIN — מיד מתחת למספר שחקן
+        import math as _math
+        def _valid_pin(v):
+            if not v or v in ('', 'nan', 'NaN', 'None'):
+                return False
+            try:
+                return not _math.isnan(float(v))
+            except:
+                return str(v).strip() != ''
+
+        existing_pin = str(p_data.get('pin','') or '') if p_data else ''
+        if _valid_pin(existing_pin):
+            st.markdown(
+                f"<div style='color:#94a3b8;font-size:13px;margin-bottom:8px;'>"
+                f"🔑 קוד כניסה: <b style='color:#60a5fa;'>{existing_pin}</b></div>",
+                unsafe_allow_html=True
+            )
+        else:
+            existing_pin = ''
+            if p_data:
+                st.markdown(
+                    "<div style='color:#f59e0b;font-size:12px;margin-bottom:8px;'>"
+                    "🔑 קוד כניסה ייווצר בשמירה</div>",
+                    unsafe_allow_html=True
+                )
+        auto_pin = existing_pin
 
         # שם מלא
         f_name = st.text_input(
@@ -1006,16 +1042,14 @@ with tab3:
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
         )
+        # טיפול בטוח בטלפון
+        _raw_phone = str(p_data.get('phone','') or '') if p_data else ''
+        _safe_phone = '' if _raw_phone.lower() in ('nan','none','') else _raw_phone
         f_phone = st.text_input(
             "מספר פלאפון",
-            value=str(p_data.get('phone','') or '') if p_data else "",
+            value=_safe_phone,
             placeholder="05X-XXXXXXX"
         )
-        # PIN — קבוע לשחקן קיים, נוצר אוטומטי לחדש
-        existing_pin = str(p_data.get('pin','') or '') if p_data else ''
-        if existing_pin:
-            st.markdown(f"<div style='color:#94a3b8;font-size:13px;margin-bottom:4px;'>🔑 קוד כניסה: <b style='color:#60a5fa;'>{existing_pin}</b></div>", unsafe_allow_html=True)
-        auto_pin = existing_pin
 
         # שנת לידה
         f_year = st.number_input(
