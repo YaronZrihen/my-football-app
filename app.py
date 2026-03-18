@@ -633,30 +633,125 @@ st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", un
 
 # ---- טיפול בכניסה דרך קישור WhatsApp (query params) ----
 import urllib.parse as _up
+import math as _qm
+
+def _clean_num_str(v):
+    s = str(v or '').strip()
+    if s.lower() in ('nan','none',''): return ''
+    try:
+        f = float(s)
+        return '' if _qm.isnan(f) else str(int(f))
+    except: return s
+
 _qp_player = st.query_params.get("player", "")
 _qp_pin    = st.query_params.get("pin", "")
-if _qp_player and _qp_pin:
-    import math as _qm
-    def _clean_pin(v):
-        s = str(v or '').strip()
-        if s.lower() in ('nan','none',''): return ''
-        try:
-            f = float(s)
-            return '' if _qm.isnan(f) else str(int(f))
-        except: return s
 
+if _qp_player and _qp_pin:
     _matched = next(
         (p for p in st.session_state.players
-         if p['name'] == _qp_player and _clean_pin(p.get('pin','')) == _qp_pin.strip()),
+         if p['name'] == _qp_player
+         and _clean_num_str(p.get('pin','')) == _qp_pin.strip()),
         None
     )
-    if _matched and st.session_state.get('tab3_logged_in','') != _matched['name']:
-        st.session_state.tab3_logged_in = _matched['name']
-        st.session_state.edit_name      = _matched['name']
-        st.query_params.clear()
-        st.rerun()
-    elif not _matched:
-        st.warning("⚠️ קישור לא תקין או פג תוקף")
+    if _matched:
+        # הצג רק את טופס העריכה — ללא טאבים
+        st.markdown(f"### ✏️ עדכון פרטים — {_matched['name']}")
+        st.markdown(f"<div style='color:#94a3b8;font-size:13px;margin-bottom:12px;'>מחובר בתור: <b style='color:#60a5fa;'>{_matched['name']}</b></div>", unsafe_allow_html=True)
+
+        # --- הצגת ציונים ---
+        _sr = get_self_rating(_matched)
+        _pr = get_peer_avg(_matched, st.session_state.players)
+        _wr = get_player_score(_matched, st.session_state.players)
+        def _sc(v): return "#22c55e" if v and v>=7 else "#f59e0b" if v and v>=5 else "#ef4444"
+        def _bd(label, val):
+            if val is None: return f"<div style='text-align:center;flex:1'><div style='font-size:11px;color:#94a3b8;'>{label}</div><div style='font-size:20px;color:#4a5568;'>—</div></div>"
+            return f"<div style='text-align:center;flex:1'><div style='font-size:11px;color:#94a3b8;'>{label}</div><div style='font-size:20px;font-weight:bold;color:{_sc(val)};'>{val:.1f}</div></div>"
+        st.markdown(
+            f"<div style='display:flex;gap:8px;background:#1e293b;border-radius:10px;padding:12px;margin-bottom:14px;'>"
+            f"{_bd('ציון אישי',_sr)}<div style='width:1px;background:#334155;'></div>"
+            f"{_bd('קבוצתי',_pr)}<div style='width:1px;background:#334155;'></div>"
+            f"{_bd('משוכלל',_wr if _wr>0 else None)}</div>",
+            unsafe_allow_html=True
+        )
+
+        # --- טופס עריכה ---
+        _pdata = _matched
+        _auto_num = _clean_num_str(_pdata.get('player_num','')) or str(len(st.session_state.players))
+        _existing_pin = _clean_num_str(_pdata.get('pin',''))
+
+        st.markdown(f"<div style='color:#94a3b8;font-size:13px;'>מספר שחקן: <b style='color:#60a5fa;'>#{_auto_num}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#94a3b8;font-size:13px;margin-bottom:8px;'>🔑 קוד: <b style='color:#60a5fa;'>{_existing_pin}</b></div>", unsafe_allow_html=True)
+
+        with st.form("wa_edit_form"):
+            _f_name  = st.text_input("שם מלא *", value=_pdata['name'])
+            _raw_ph  = _pdata.get('phone','') or ''
+            try:
+                _ph_f = float(str(_raw_ph))
+                _ph_s = '' if _qm.isnan(_ph_f) else ('0'+str(int(_ph_f)) if len(str(int(_ph_f)))==9 else str(int(_ph_f)))
+            except: _ph_s = str(_raw_ph) if str(_raw_ph).lower() not in ('nan','none','') else ''
+            _f_phone = st.text_input("מספר פלאפון", value=_ph_s, placeholder="05X-XXXXXXX")
+            _f_year  = st.number_input("שנת לידה *", 1950, 2015, int(float(_pdata.get('birth_year',1990) or 1990)))
+
+            ROLES = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
+            _ex_roles = safe_split(_pdata.get('roles',''))
+            _f_roles = st.pills("תפקידים *", ROLES, selection_mode="multi", default=[r for r in _ex_roles if r in ROLES])
+
+            _ex_rat  = _clean_num_str(_pdata.get('rating',''))
+            _f_rate_str = st.pills("ציון עצמי (1-10) *",
+                options=["—"]+[str(i) for i in range(1,11)],
+                default=_ex_rat if _ex_rat else "—",
+                selection_mode="single", key="wa_self_rate")
+            _f_rate = int(_f_rate_str) if _f_rate_str and _f_rate_str != "—" else None
+
+            _f_active = st.toggle("שחקן פעיל", value=is_player_active(_pdata), key="wa_active")
+
+            # דירוג עמיתים
+            st.markdown("---")
+            st.markdown("**דירוג עמיתים:**")
+            _other = sorted([p for p in st.session_state.players if p['name'] != _pdata['name']],
+                           key=lambda p: p['name'].split()[0])
+            _ex_peers = safe_get_json(_pdata.get('peer_ratings','{}'))
+            _peer_res = {}
+            if _other:
+                with st.expander(f"דרג {len(_other)} שחקנים"):
+                    for op in _other:
+                        _pv = _ex_peers.get(op['name'])
+                        try: _pd = str(int(float(_pv))) if _pv and float(_pv)>0 else "—"
+                        except: _pd = "—"
+                        _ps = st.pills(f"{op['name']} *",
+                            options=["—"]+[str(i) for i in range(1,11)],
+                            default=_pd, selection_mode="single",
+                            key=f"wa_pr_{op['name']}_{_pdata['name']}")
+                        _peer_res[op['name']] = int(_ps) if _ps and _ps!="—" else None
+
+            if st.form_submit_button("💾 שמור", use_container_width=True):
+                _errs = []
+                if not _f_name.strip(): _errs.append("שם מלא")
+                if not _f_roles: _errs.append("תפקידים")
+                if not _f_rate: _errs.append("ציון עצמי")
+                _unrated = [n for n,v in _peer_res.items() if v is None]
+                if _unrated: _errs.append(f"דירוג חסר: {', '.join(_unrated)}")
+                if _errs:
+                    st.error(f"❌ חסר: {', '.join(_errs)}")
+                else:
+                    _clean_peers = {k:v for k,v in _peer_res.items() if v and v>0}
+                    _new_entry = {
+                        "name": _f_name.strip(), "player_num": _auto_num,
+                        "birth_year": _f_year, "rating": _f_rate,
+                        "roles": ",".join(_f_roles), "phone": _f_phone.strip(),
+                        "peer_ratings": json.dumps(_clean_peers, ensure_ascii=False),
+                        "active": str(_f_active), "pin": _existing_pin,
+                        "win_points": _pdata.get('win_points',0),
+                    }
+                    _idx = next((i for i,x in enumerate(st.session_state.players) if x['name']==_pdata['name']), None)
+                    if _idx is not None:
+                        st.session_state.players[_idx] = _new_entry
+                    if save_to_gsheets(st.session_state.players):
+                        st.success(f"✅ {_f_name} נשמר בהצלחה!")
+                        st.rerun()
+        st.stop()  # אל תציג את שאר האפליקציה
+    else:
+        st.warning("⚠️ קישור לא תקין או קוד שגוי")
         st.query_params.clear()
 
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
