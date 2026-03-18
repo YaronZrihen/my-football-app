@@ -694,7 +694,7 @@ if _qp_player and _qp_pin:
                 _ph_f = float(str(_raw_ph))
                 _ph_s = '' if _qm.isnan(_ph_f) else ('0'+str(int(_ph_f)) if len(str(int(_ph_f)))==9 else str(int(_ph_f)))
             except: _ph_s = str(_raw_ph) if str(_raw_ph).lower() not in ('nan','none','') else ''
-            _f_phone = st.text_input("מספר פלאפון", value=_ph_s, placeholder="05X-XXXXXXX")
+            _f_phone = st.text_input("מספר פלאפון *", value=_ph_s, placeholder="05X-XXXXXXX")
             _f_year  = st.number_input("שנת לידה *", 1950, 2015, int(float(_pdata.get('birth_year',1990) or 1990)))
 
             ROLES = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
@@ -732,7 +732,11 @@ if _qp_player and _qp_pin:
             if st.form_submit_button("💾 שמור", use_container_width=True):
                 _errs = []
                 if not _f_name.strip(): _errs.append("שם מלא")
-                if not _f_phone.strip(): _errs.append("מספר פלאפון")
+                _ph = _f_phone.strip().replace('-','').replace(' ','')
+                if not _ph:
+                    _errs.append("מספר פלאפון — שדה חובה")
+                elif not (_ph.isdigit() and len(_ph) in (9,10)):
+                    _errs.append("מספר פלאפון — פורמט לא תקין (לדוגמה: 0521234567)")
                 if not _f_roles: _errs.append("תפקידים")
                 if not _f_rate: _errs.append("ציון עצמי")
                 _unrated = [n for n,v in _peer_res.items() if v is None]
@@ -1188,7 +1192,7 @@ with tab3:
             _s = str(_raw_phone or '').strip()
             _safe_phone = '' if _s.lower() in ('nan','none','') else _s
         f_phone = st.text_input(
-            "מספר פלאפון",
+            "מספר פלאפון *",
             value=_safe_phone,
             placeholder="05X-XXXXXXX"
         )
@@ -1267,8 +1271,11 @@ with tab3:
             errors = []
             if not f_name.strip():
                 errors.append("שם מלא")
-            if not f_phone.strip():
-                errors.append("מספר פלאפון")
+            _ph2 = f_phone.strip().replace('-','').replace(' ','')
+            if not _ph2:
+                errors.append("מספר פלאפון — שדה חובה")
+            elif not (_ph2.isdigit() and len(_ph2) in (9,10)):
+                errors.append("מספר פלאפון — פורמט לא תקין (לדוגמה: 0521234567)")
             if not f_roles:
                 errors.append("תפקידים")
             if not f_rate:
