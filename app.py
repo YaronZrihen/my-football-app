@@ -766,6 +766,28 @@ if _qp_player and _qp_pin:
         st.warning("⚠️ קישור לא תקין או קוד שגוי")
         st.query_params.clear()
 
+# ---- handlers למאגר (query params) ----
+_db_action = st.query_params.get("db_action", "")
+if _db_action:
+    _parts = _db_action.split("|")
+    if len(_parts) == 2:
+        _act, _pname = _parts
+        if _act == "edit":
+            st.session_state.edit_name = _pname
+            st.session_state.nav_to_edit = True
+        elif _act == "toggle":
+            _idx = next((i for i,x in enumerate(st.session_state.players) if x['name']==_pname), None)
+            if _idx is not None:
+                _cur = str(st.session_state.players[_idx].get('active','True'))
+                _new_active = str(_cur.lower() not in ('true','1'))
+                st.session_state.players[_idx]['active'] = _new_active
+                save_to_gsheets(st.session_state.players)
+        elif _act == "delete":
+            st.session_state.players = [x for x in st.session_state.players if x['name'] != _pname]
+            save_to_gsheets(st.session_state.players)
+    st.query_params.clear()
+    st.rerun()
+
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
@@ -1008,31 +1030,29 @@ with tab2:
             app_url      = "https://my-football-app-maupcjcb9vmwxrthq7nduu.streamlit.app"
             toggle_label = "🔴" if is_active else "🟢"
 
-            # כפתורי עריכה + פעיל + מחיקה
-            cb1, cb2, cb3 = st.columns([3, 1, 1])
-            with cb1:
-                if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
-                    st.session_state.edit_name = p['name']
-                    st.session_state.nav_to_edit = True
-                    st.rerun()
-            with cb2:
-                if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
-                    idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == p['name'])
-                    st.session_state.players[idx]['active'] = str(not is_active)
-                    save_to_gsheets(st.session_state.players)
-                    st.rerun()
-            with cb3:
-                if st.button("🗑️", key=f"db_dl_{p['name']}", use_container_width=True):
-                    st.session_state.players = [x for x in st.session_state.players if x['name'] != p['name']]
-                    save_to_gsheets(st.session_state.players)
-                    st.rerun()
-
-            # כפתור WhatsApp — st.link_button פותח בדפדפן
+            # כפתורי פעולה — HTML flex, שורה אחת, לא גולשת
+            _pn_enc = _up.quote(p['name'])
+            _wa_btn = ""
             if player_pin and player_phone:
-                link   = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
-                wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד: {player_pin}"
+                link   = f"{app_url}/?player={_pn_enc}&pin={player_pin}"
+                wa_msg = f"שלום {p['name'].split()[0]}! קישור: {link} | קוד: {player_pin}"
                 wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
-                st.link_button("💬 שלח ב-WhatsApp", wa_url, use_container_width=True)
+                _wa_btn = (f"<a href='{wa_url}' target='_blank' style='background:#25d366;color:white;"
+                           f"border-radius:6px;padding:6px 10px;text-decoration:none;font-size:14px;"
+                           f"white-space:nowrap;text-align:center;'>💬</a>")
+
+            st.markdown(
+                f"<div style='display:flex;gap:5px;margin:4px 0;width:100%;box-sizing:border-box;'>"
+                f"<a href='?db_action=edit|{_pn_enc}' style='background:#1e3a5f;color:white;border-radius:6px;"
+                f"padding:6px 0;text-decoration:none;font-size:13px;flex:3;text-align:center;'>📝 ערוך</a>"
+                f"<a href='?db_action=toggle|{_pn_enc}' style='background:#334155;color:white;border-radius:6px;"
+                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
+                f"{_wa_btn}"
+                f"<a href='?db_action=delete|{_pn_enc}' style='background:#7f1d1d;color:white;border-radius:6px;"
+                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
             st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
 
@@ -1330,6 +1350,28 @@ with tab3:
 
 
 # ============================================================
+# ---- handler היסטוריה ----
+_hist_action = st.query_params.get("hist", "")
+if _hist_action:
+    _ha_parts = _hist_action.split("|")
+    if len(_ha_parts) == 2:
+        _ha, _hdate = _ha_parts
+        _hidx = next((i for i,g in enumerate(st.session_state.get('game_history',[])) if g['date']==_hdate), None)
+        if _hidx is not None:
+            _hgame = st.session_state.game_history[_hidx]
+            if _ha in ("לבן","שחור"):
+                st.session_state.game_history[_hidx]["winner"] = _ha
+                _recalc_win_points(st.session_state.players, st.session_state.game_history)
+                save_history_to_gsheets(st.session_state.game_history)
+                save_to_gsheets(st.session_state.players)
+            elif _ha == "cancel":
+                st.session_state.game_history[_hidx]["winner"] = ""
+                _recalc_win_points(st.session_state.players, st.session_state.game_history)
+                save_history_to_gsheets(st.session_state.game_history)
+                save_to_gsheets(st.session_state.players)
+    st.query_params.clear()
+    st.rerun()
+
 # TAB 4: היסטוריית משחקים
 # ============================================================
 with tab4:
@@ -1383,34 +1425,27 @@ with tab4:
                 unsafe_allow_html=True
             )
 
-            # כפתורי קביעת מנצח — קומפקטי למובייל
-            cw1, cw2, cw3 = st.columns([2, 2, 1])
-            with cw1:
-                if st.button("🏆לבן", key=f"win1_{gi}", use_container_width=True,
-                             type="primary" if winner == "לבן" else "secondary"):
-                    history[gi]["winner"] = "לבן"
-                    st.session_state.game_history = history
-                    _recalc_win_points(st.session_state.players, history)
-                    save_history_to_gsheets(history)
-                    save_to_gsheets(st.session_state.players)
-                    st.rerun()
-            with cw2:
-                if st.button("🏆שחור", key=f"win2_{gi}", use_container_width=True,
-                             type="primary" if winner == "שחור" else "secondary"):
-                    history[gi]["winner"] = "שחור"
-                    st.session_state.game_history = history
-                    _recalc_win_points(st.session_state.players, history)
-                    save_history_to_gsheets(history)
-                    save_to_gsheets(st.session_state.players)
-                    st.rerun()
-            with cw3:
-                if winner and st.button("↩בטל", key=f"win3_{gi}", use_container_width=True):
-                    history[gi]["winner"] = ""
-                    st.session_state.game_history = history
-                    _recalc_win_points(st.session_state.players, history)
-                    save_history_to_gsheets(history)
-                    save_to_gsheets(st.session_state.players)
-                    st.rerun()
+            # כפתורי מנצח — HTML inline
+            _hdate_enc = _up.quote(date_str)
+            _w1_bg = "#2563eb" if winner == "לבן" else "#1e293b"
+            _w2_bg = "#2563eb" if winner == "שחור" else "#1e293b"
+            _cancel_btn = (
+                f"<a href='?hist=cancel|{_hdate_enc}' style='background:#7f1d1d;color:white;"
+                f"border-radius:6px;padding:6px 10px;text-decoration:none;font-size:13px;"
+                f"white-space:nowrap;text-align:center;'>↩</a>"
+            ) if winner else ""
+            st.markdown(
+                f"<div style='display:flex;gap:5px;margin:4px 0;'>"
+                f"<a href='?hist=לבן|{_hdate_enc}' style='background:{_w1_bg};color:white;"
+                f"border-radius:6px;padding:6px 12px;text-decoration:none;font-size:13px;"
+                f"flex:1;text-align:center;white-space:nowrap;'>🏆 לבן</a>"
+                f"<a href='?hist=שחור|{_hdate_enc}' style='background:{_w2_bg};color:white;"
+                f"border-radius:6px;padding:6px 12px;text-decoration:none;font-size:13px;"
+                f"flex:1;text-align:center;white-space:nowrap;'>🏆 שחור</a>"
+                f"{_cancel_btn}"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
             st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 
