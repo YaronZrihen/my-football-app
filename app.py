@@ -858,29 +858,36 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                # כפתור החלפה + מידע: כפתור צר משמאל, מידע מימין
+                # שחקנים — כל שורה: info HTML + כפתור st נפרד
+                # CSS גלובלי לכפתורי החלפה — קטן וצמוד
+                st.markdown("""
+                <style>
+                [data-testid="stHorizontalBlock"]:has(.swap-row) {gap:0 !important;}
+                .swap-info {
+                    background:#1e293b;border-radius:6px;padding:10px 12px;
+                    direction:rtl;text-align:right;font-size:15px;line-height:1.5;
+                    margin-bottom:4px;
+                }
+                </style>""", unsafe_allow_html=True)
+
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
                     other_tk = "t2" if tk == "t1" else "t1"
-                    cb, ci = st.columns([1, 9])
-                    with cb:
-                        if st.button("🔄", key=f"sw_{tk}_{i}", use_container_width=True):
-                            moved = st.session_state[tk].pop(i)
-                            st.session_state[other_tk].append(moved)
-                            st.rerun()
-                    with ci:
-                        st.markdown(
-                            f"<div style='background:#1e293b;border-radius:6px;padding:8px 10px;"
-                            f"direction:rtl;text-align:right;font-size:15px;line-height:1.4;'>"
-                            f"<span style='color:#60a5fa;font-size:12px;margin-left:5px;'>{pnum_s}</span>"
-                            f"<b>{p['name']}</b> "
-                            f"<span style='color:#64748b;font-size:12px;font-weight:normal;'>({p['age']})</span>"
-                            f"<span style='color:{sc};font-size:14px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+                    row_html = (
+                        "<div class='swap-info'>"
+                        f"<span style='color:#60a5fa;font-size:12px;margin-left:5px;'>{pnum_s}</span>"
+                        f"<b>{p['name']}</b> "
+                        f"<span style='color:#64748b;font-size:12px;'>({p['age']})</span>"
+                        f"<span style='color:{sc};font-size:14px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
+                        "</div>"
+                    )
+                    st.markdown(row_html, unsafe_allow_html=True)
+                    if st.button("🔄", key=f"sw_{tk}_{i}", help=f"העבר {p['name']}"):
+                        moved = st.session_state[tk].pop(i)
+                        st.session_state[other_tk].append(moved)
+                        st.rerun()
 
             render_team(t1, "t1", "#1e3a5f", "⚪ לבן")
             render_team(t2, "t2", "#3a1e1e", "⚫ שחור")
