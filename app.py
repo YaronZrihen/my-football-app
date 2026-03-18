@@ -35,48 +35,13 @@ h1, h2, h3, p, label, span, div {
 }
 
 /* ===== כרטיס שחקן במאגר ===== */
-.database-card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-}
 .card-name { font-size: 16px; font-weight: bold; color: #f1f5f9; }
 .card-detail { font-size: 13px; color: #94a3b8; margin-top: 3px; }
-
-/* ===== שחקן בחלוקה ===== */
-.p-box {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    padding: 6px 10px;
-    margin-bottom: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 38px;
-    font-size: 14px;
-}
 .p-score { color: #22c55e; font-size: 12px; font-weight: bold; }
-
-/* ===== סטטיסטיקות קבוצה ===== */
 .team-stats {
-    background: #0f172a;
-    border-top: 2px solid #334155;
-    padding: 8px;
-    margin-top: 6px;
-    font-size: 12px;
-    text-align: center;
-    border-radius: 0 0 10px 10px;
-}
-.team-header {
-    background: #1e3a5f;
-    border-radius: 8px 8px 0 0;
-    padding: 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 15px;
+    background: #0f172a; border-top: 2px solid #334155;
+    padding: 8px; margin-top: 6px; font-size: 12px;
+    text-align: center; border-radius: 0 0 10px 10px;
 }
 
 /* ===== Pills ===== */
@@ -105,8 +70,42 @@ div[data-testid="stPills"] button[aria-checked="true"] {
 /* ===== רספונסיבי למובייל ===== */
 @media (max-width: 480px) {
     .main-title { font-size: 20px; }
-    .p-box { font-size: 12px; padding: 4px 8px; }
-    .block-container { padding: 6px !important; }
+    .block-container { padding: 6px !important; max-width: 100vw !important; overflow-x: hidden !important; }
+}
+
+/* ===== כללי — מניעת גלישה ===== */
+.stApp { overflow-x: hidden !important; }
+[data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
+
+/* ===== p-box — תיבת שחקן בחלוקה ===== */
+.p-box {
+    background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+    padding: 7px 10px; margin-bottom: 4px;
+    display: flex; justify-content: space-between; align-items: center;
+    min-height: 38px; font-size: 14px;
+    text-align: right; direction: rtl;
+    width: 100%; box-sizing: border-box;
+}
+
+/* ===== database-card ===== */
+.database-card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    text-align: right; direction: rtl;
+    width: 100%; box-sizing: border-box;
+}
+
+/* ===== team-header ===== */
+.team-header {
+    background: #1e3a5f; border-radius: 8px 8px 0 0;
+    padding: 8px; text-align: center;
+    font-weight: bold; font-size: 15px;
+    width: 100%; box-sizing: border-box;
+}
+
+/* ===== כפתורי Streamlit — גודל מינימלי למובייל ===== */
+@media (max-width: 480px) {
+    .stButton button { font-size: 12px !important; padding: 4px 6px !important; min-width: 0 !important; }
 }
 
 [data-testid="stHorizontalBlock"] {
@@ -582,7 +581,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active', 'win_points']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active', 'win_points', 'phone', 'pin']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -695,7 +694,7 @@ with tab1:
                 col_info, col_btn = st.columns([6, 1])
                 with col_info:
                     st.markdown(
-                        f"<div class='p-box' style='font-size:12px;padding:5px 8px;'>"
+                        f"<div class='p-box' style='font-size:13px;padding:6px 8px;direction:rtl;text-align:right;width:100%;box-sizing:border-box;'>"
                         f"<span style='color:#60a5fa;font-size:10px;margin-left:4px;'>{pnum_s}</span>"
                         f"{p['name']} <span style='color:#64748b;font-size:10px;'>({p['age']})</span>"
                         f"<span style='color:{sc};font-size:11px;font-weight:bold;margin-right:4px;'>{p['score']:.1f}</span>"
@@ -714,7 +713,7 @@ with tab1:
                 col_info, col_btn = st.columns([6, 1])
                 with col_info:
                     st.markdown(
-                        f"<div class='p-box' style='font-size:12px;padding:5px 8px;'>"
+                        f"<div class='p-box' style='font-size:13px;padding:6px 8px;direction:rtl;text-align:right;width:100%;box-sizing:border-box;'>"
                         f"<span style='color:#60a5fa;font-size:10px;margin-left:4px;'>{pnum_s}</span>"
                         f"{p['name']} <span style='color:#64748b;font-size:10px;'>({p['age']})</span>"
                         f"<span style='color:{sc};font-size:11px;font-weight:bold;margin-right:4px;'>{p['score']:.1f}</span>"
@@ -768,6 +767,27 @@ with tab1:
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
+    # בדיקת הרשאת מנהל
+    if not st.session_state.get('admin_logged_in'):
+        st.markdown("**🔒 גישה למנהל בלבד**")
+        admin_col, admin_btn = st.columns([3, 1])
+        with admin_col:
+            admin_input = st.text_input("קוד מנהל:", type="password", label_visibility="collapsed", placeholder="קוד מנהל")
+        with admin_btn:
+            if st.button("כנס", key="admin_login"):
+                if admin_input == "2026":
+                    st.session_state.admin_logged_in = True
+                    st.rerun()
+                else:
+                    st.error("❌ קוד שגוי")
+        st.stop()
+
+    col_admin_out, _ = st.columns([1, 4])
+    with col_admin_out:
+        if st.button("🚪 התנתק", key="admin_logout"):
+            del st.session_state['admin_logged_in']
+            st.rerun()
+
     st.subheader(f"מאגר שחקנים ({len(st.session_state.players)})")
 
     if not st.session_state.players:
@@ -834,14 +854,24 @@ with tab2:
             )
 
             st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-            ce, gap, ct, cd = st.columns([3, 0.15, 1, 1])
+            ce, ct, cw, cd = st.columns([4, 1, 1, 1])
             with ce:
                 if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
                     st.session_state.edit_name = p['name']
                     st.session_state.nav_to_edit = True
                     st.rerun()
-            with gap:
-                st.empty()
+            with cw:
+                player_pin  = str(p.get('pin','') or '')
+                player_phone = str(p.get('phone','') or '')
+                app_url = "https://my-football-app.streamlit.app"
+                if player_pin and player_phone:
+                    import urllib.parse as _up
+                    link = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
+                    wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד כניסה: {player_pin}"
+                    wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
+                    st.markdown(f"<a href='{wa_url}' target='_blank' style='display:block;text-align:center;background:#25d366;color:white;border-radius:6px;padding:4px;font-size:16px;text-decoration:none;'>💬</a>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<span style='color:#4a5568;font-size:16px;display:block;text-align:center;'>💬</span>", unsafe_allow_html=True)
             with ct:
                 toggle_label = "🔴" if is_active else "🟢"
                 if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
@@ -864,6 +894,23 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
+    import urllib.parse as _up
+
+    # ---- בדיקת query params לכניסה אוטומטית ----
+    qp_player = st.query_params.get("player", "")
+    qp_pin    = st.query_params.get("pin", "")
+    if qp_player and qp_pin:
+        matched = next((p for p in st.session_state.players
+                        if p['name'] == qp_player and str(p.get('pin','')) == qp_pin), None)
+        if matched and 'tab3_logged_in' not in st.session_state:
+            st.session_state.tab3_logged_in = matched['name']
+            st.session_state.edit_name = matched['name']
+            st.query_params.clear()
+            st.rerun()
+
+    # ---- מצב לוגין ----
+    logged_in = st.session_state.get('tab3_logged_in', '')  # שם שחקן שמחובר, '' = אנונימי
+
     # באנר ניווט מהמאגר
     if st.session_state.pop('nav_to_edit', False):
         st.info(f"✏️ עורך: **{st.session_state.edit_name}** — גלול למטה לטופס")
@@ -876,13 +923,35 @@ with tab3:
 
     st.subheader("עדכון פרטי שחקן")
 
-    all_options = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
-    default_idx = (
-        all_options.index(st.session_state.edit_name)
-        if st.session_state.edit_name in all_options
-        else 0
-    )
-    choice = st.selectbox("בחר שחקן:", all_options, index=default_idx)
+    # ---- בחירת שחקן לפי הרשאה ----
+    if logged_in:
+        # שחקן מחובר — רואה רק את עצמו
+        st.success(f"👋 שלום, {logged_in}!")
+        if st.button("🚪 התנתק", key="logout_btn"):
+            del st.session_state['tab3_logged_in']
+            st.rerun()
+        choice = logged_in
+    else:
+        # לא מחובר — צריך להזין PIN
+        st.markdown("**כניסה לעדכון פרטים:**")
+        col_name, col_pin, col_go = st.columns([3, 2, 1])
+        with col_name:
+            login_name = st.selectbox("שם:", [""] + sorted([p['name'] for p in st.session_state.players]), label_visibility="collapsed")
+        with col_pin:
+            login_pin = st.text_input("PIN", placeholder="4 ספרות", max_chars=4, label_visibility="collapsed", type="password")
+        with col_go:
+            if st.button("כנס", use_container_width=True):
+                if login_name and login_pin:
+                    matched = next((p for p in st.session_state.players
+                                    if p['name'] == login_name and str(p.get('pin','')) == login_pin), None)
+                    if matched:
+                        st.session_state.tab3_logged_in = matched['name']
+                        st.session_state.edit_name = matched['name']
+                        st.rerun()
+                    else:
+                        st.error("❌ שם או קוד שגוי")
+        st.stop()
+        choice = ""
 
     p_data = next((p for p in st.session_state.players if p['name'] == choice), None)
 
@@ -925,6 +994,16 @@ with tab3:
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
         )
+        f_phone = st.text_input(
+            "מספר פלאפון",
+            value=str(p_data.get('phone','') or '') if p_data else "",
+            placeholder="05X-XXXXXXX"
+        )
+        # PIN — קבוע לשחקן קיים, נוצר אוטומטי לחדש
+        existing_pin = str(p_data.get('pin','') or '') if p_data else ''
+        if existing_pin:
+            st.markdown(f"<div style='color:#94a3b8;font-size:13px;margin-bottom:4px;'>🔑 קוד כניסה: <b style='color:#60a5fa;'>{existing_pin}</b></div>", unsafe_allow_html=True)
+        auto_pin = existing_pin
 
         # שנת לידה
         f_year = st.number_input(
@@ -1016,6 +1095,9 @@ with tab3:
                 # peer_ratings = מה השחקן נתן לאחרים
                 my_ratings = {k: v for k, v in peer_res.items() if v is not None and v > 0}
 
+                import random as _random
+                # צור PIN חדש רק לשחקן חדש
+                new_pin = auto_pin if auto_pin else str(_random.randint(1000, 9999))
                 new_entry = {
                     "name": f_name.strip(),
                     "player_num": auto_num,
@@ -1024,6 +1106,8 @@ with tab3:
                     "roles": roles_str,
                     "peer_ratings": json.dumps(my_ratings, ensure_ascii=False),
                     "active": str(f_active),
+                    "phone": f_phone.strip(),
+                    "pin": new_pin,
                 }
 
                 # עדכון או הוספה של השחקן הנוכחי
@@ -1103,10 +1187,10 @@ with tab4:
                 unsafe_allow_html=True
             )
 
-            # כפתורי קביעת מנצח
+            # כפתורי קביעת מנצח — קומפקטי למובייל
             cw1, cw2, cw3 = st.columns(3)
             with cw1:
-                if st.button("🏆 לבן ניצח", key=f"win1_{gi}", use_container_width=True,
+                if st.button("🏆 לבן", key=f"win1_{gi}", use_container_width=True,
                              type="primary" if winner == "לבן" else "secondary"):
                     history[gi]["winner"] = "לבן"
                     st.session_state.game_history = history
@@ -1115,7 +1199,7 @@ with tab4:
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cw2:
-                if st.button("🏆 שחור ניצח", key=f"win2_{gi}", use_container_width=True,
+                if st.button("🏆 שחור", key=f"win2_{gi}", use_container_width=True,
                              type="primary" if winner == "שחור" else "secondary"):
                     history[gi]["winner"] = "שחור"
                     st.session_state.game_history = history
@@ -1124,7 +1208,7 @@ with tab4:
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cw3:
-                if winner and st.button("↩️ בטל תוצאה", key=f"win3_{gi}", use_container_width=True):
+                if winner and st.button("↩️ בטל", key=f"win3_{gi}", use_container_width=True):
                     history[gi]["winner"] = ""
                     st.session_state.game_history = history
                     _recalc_win_points(st.session_state.players, history)
