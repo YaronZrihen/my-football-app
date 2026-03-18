@@ -851,27 +851,28 @@ with tab1:
                 # כותרת
                 st.markdown(
                     f"<div style='background:{header_bg};border-radius:8px 8px 0 0;"
-                    f"padding:9px 12px;text-align:center;font-weight:bold;font-size:15px;"
-                    f"direction:rtl;margin-top:6px;'>"
+                    f"padding:10px 14px;text-align:center;font-weight:bold;font-size:17px;"
+                    f"direction:rtl;margin-top:8px;'>"
                     f"{title} ({len(team)})"
-                    f"<span style='font-size:11px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
+                    f"<span style='font-size:13px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                # שחקנים
+                # שחקנים — HTML + כפתור st ליד כל שחקן
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
                     other_tk = "t2" if tk == "t1" else "t1"
-                    ci, cb = st.columns([5, 1])
+                    ci, cb = st.columns([6, 1])
                     with ci:
                         st.markdown(
-                            f"<div style='background:#1e293b;border-radius:6px;padding:7px 10px;"
-                            f"direction:rtl;text-align:right;font-size:14px;'>"
-                            f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>{pnum_s}</span>"
-                            f"{p['name']} <span style='color:#64748b;font-size:11px;'>({p['age']})</span>"
-                            f"<span style='color:{sc};font-size:13px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
+                            f"<div style='background:#1e293b;border-radius:6px;padding:9px 12px;"
+                            f"direction:rtl;text-align:right;font-size:16px;line-height:1.4;'>"
+                            f"<span style='color:#60a5fa;font-size:13px;margin-left:6px;'>{pnum_s}</span>"
+                            f"<b>{p['name']}</b> "
+                            f"<span style='color:#64748b;font-size:13px;'>({p['age']})</span>"
+                            f"<span style='color:{sc};font-size:14px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
                             f"</div>",
                             unsafe_allow_html=True
                         )
