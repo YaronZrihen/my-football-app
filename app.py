@@ -688,53 +688,44 @@ with tab1:
             avg1 = balance_score(t1); age1 = sum(p['age'] for p in t1)/len(t1) if t1 else 0
             avg2 = balance_score(t2); age2 = sum(p['age'] for p in t2)/len(t2) if t2 else 0
 
-            # בדיקת swap דרך query param
-            _swap = st.query_params.get("sw", "")
-            if _swap:
-                try:
-                    _tk, _idx = _swap.split("_")
-                    _idx = int(_idx)
-                    if _tk == "t1" and _idx < len(st.session_state.t1):
-                        st.session_state.t2.append(st.session_state.t1.pop(_idx))
-                    elif _tk == "t2" and _idx < len(st.session_state.t2):
-                        st.session_state.t1.append(st.session_state.t2.pop(_idx))
-                except: pass
-                st.query_params.clear()
-                st.rerun()
-
-            def team_html(team, tk, header_bg, title):
-                rows = ""
+            def render_team(team, tk, header_bg, title):
+                avg     = balance_score(team)
+                age_avg = sum(p['age'] for p in team)/len(team) if team else 0
+                # כותרת
+                st.markdown(
+                    f"<div style='background:{header_bg};border-radius:8px 8px 0 0;"
+                    f"padding:9px 12px;text-align:center;font-weight:bold;font-size:15px;"
+                    f"direction:rtl;margin-top:6px;'>"
+                    f"{title} ({len(team)})"
+                    f"<span style='font-size:11px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                # שחקנים
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
-                    rows += (
-                        f"<div style='display:flex;align-items:center;background:#1e293b;border-radius:6px;"
-                        f"padding:7px 10px;margin-bottom:4px;gap:6px;width:100%;box-sizing:border-box;'>"
-                        f"<span style='color:#60a5fa;font-size:12px;min-width:26px;text-align:right;'>{pnum_s}</span>"
-                        f"<span style='flex:1;font-size:14px;text-align:right;'>{p['name']}"
-                        f" <span style='color:#64748b;font-size:11px;'>({p['age']})</span></span>"
-                        f"<span style='color:{sc};font-size:13px;font-weight:bold;min-width:30px;text-align:center;'>{p['score']:.1f}</span>"
-                        f"<a href='?sw={tk}_{i}' style='background:#334155;color:white;border-radius:5px;"
-                        f"padding:4px 8px;text-decoration:none;font-size:15px;flex-shrink:0;'>🔄</a>"
-                        f"</div>"
-                    )
-                avg = balance_score(team)
-                age_avg = sum(p['age'] for p in team)/len(team) if team else 0
-                return (
-                    f"<div style='background:{header_bg};border-radius:8px 8px 0 0;padding:9px 12px;"
-                    f"text-align:center;font-weight:bold;font-size:15px;direction:rtl;'>"
-                    f"{title} ({len(team)})"
-                    f"<span style='font-size:11px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
-                    f"</div>"
-                    f"<div style='padding:6px;background:#0f172a;border-radius:0 0 8px 8px;margin-bottom:10px;'>{rows}</div>"
-                )
+                    other_tk = "t2" if tk == "t1" else "t1"
+                    ci, cb = st.columns([5, 1])
+                    with ci:
+                        st.markdown(
+                            f"<div style='background:#1e293b;border-radius:6px;padding:7px 10px;"
+                            f"direction:rtl;text-align:right;font-size:14px;'>"
+                            f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>{pnum_s}</span>"
+                            f"{p['name']} <span style='color:#64748b;font-size:11px;'>({p['age']})</span>"
+                            f"<span style='color:{sc};font-size:13px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    with cb:
+                        if st.button("🔄", key=f"sw_{tk}_{i}"):
+                            moved = st.session_state[tk].pop(i)
+                            st.session_state[other_tk].append(moved)
+                            st.rerun()
 
-            st.markdown(
-                team_html(t1, "t1", "#1e3a5f", "⚪ לבן") +
-                team_html(t2, "t2", "#3a1e1e", "⚫ שחור"),
-                unsafe_allow_html=True
-            )
+            render_team(t1, "t1", "#1e3a5f", "⚪ לבן")
+            render_team(t2, "t2", "#3a1e1e", "⚫ שחור")
 
 
 
@@ -866,49 +857,37 @@ with tab2:
                 unsafe_allow_html=True
             )
 
-            # כפתורי פעולה — ערוך + WhatsApp כ-HTML, פעיל/מחיקה כ-st.button
+            import urllib.parse as _up
             player_pin   = str(p.get('pin','') or '')
             player_phone = str(p.get('phone','') or '')
             app_url      = "https://my-football-app.streamlit.app"
-            import urllib.parse as _up
-
-            wa_btn = ""
-            if player_pin and player_phone:
-                link   = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
-                wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד: {player_pin}"
-                wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
-                wa_btn = f"<a href='{wa_url}' target='_blank' style='background:#25d366;color:white;border-radius:6px;padding:6px 12px;text-decoration:none;font-size:15px;white-space:nowrap;'>💬</a>"
-
-            # כפתור ערוך כ-HTML (מפנה לטאב עדכון)
-            edit_key   = f"db_ed_{p['name']}"
-            toggle_key = f"db_tog_{p['name']}"
-            del_key    = f"db_dl_{p['name']}"
             toggle_label = "🔴" if is_active else "🟢"
 
-            # שורת כפתורים — ערוך ו-WhatsApp כ-HTML, שאר כ-st
-            st.markdown(
-                f"<div style='display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:nowrap;width:100%;box-sizing:border-box;'>"
-                f"{wa_btn}"
-                f"</div>",
-                unsafe_allow_html=True
-            )
+            # כפתורי עריכה + פעיל + מחיקה
             cb1, cb2, cb3 = st.columns([3, 1, 1])
             with cb1:
-                if st.button("📝 ערוך", key=edit_key, use_container_width=True):
+                if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
                     st.session_state.edit_name = p['name']
                     st.session_state.nav_to_edit = True
                     st.rerun()
             with cb2:
-                if st.button(toggle_label, key=toggle_key, use_container_width=True):
+                if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == p['name'])
                     st.session_state.players[idx]['active'] = str(not is_active)
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cb3:
-                if st.button("🗑️", key=del_key, use_container_width=True):
+                if st.button("🗑️", key=f"db_dl_{p['name']}", use_container_width=True):
                     st.session_state.players = [x for x in st.session_state.players if x['name'] != p['name']]
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
+
+            # כפתור WhatsApp — st.link_button פותח בדפדפן
+            if player_pin and player_phone:
+                link   = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
+                wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד: {player_pin}"
+                wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
+                st.link_button("💬 שלח ב-WhatsApp", wa_url, use_container_width=True)
 
             st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
 
@@ -932,7 +911,11 @@ with tab3:
             st.rerun()
 
     # ---- מצב לוגין ----
-    logged_in = st.session_state.get('tab3_logged_in', '')  # שם שחקן שמחובר, '' = אנונימי
+    # מנהל מחובר — גישה מלאה
+    if st.session_state.get('admin_logged_in') and not st.session_state.get('tab3_logged_in'):
+        st.session_state.tab3_logged_in = '__admin__'
+
+    logged_in = st.session_state.get('tab3_logged_in', '')
 
     # באנר ניווט מהמאגר
     if st.session_state.pop('nav_to_edit', False):
@@ -948,12 +931,18 @@ with tab3:
 
     # ---- בחירת שחקן לפי הרשאה ----
     if logged_in:
-        # שחקן מחובר — רואה רק את עצמו
-        st.success(f"👋 שלום, {logged_in}!")
-        if st.button("🚪 התנתק", key="logout_btn"):
-            del st.session_state['tab3_logged_in']
-            st.rerun()
-        choice = logged_in
+        if logged_in == '__admin__':
+            st.success("👑 מצב מנהל — גישה מלאה")
+            all_options = ["🆕 שחקן חדש"] + sorted([p['name'] for p in st.session_state.players])
+            default_idx = (all_options.index(st.session_state.edit_name)
+                          if st.session_state.edit_name in all_options else 0)
+            choice = st.selectbox("בחר שחקן:", all_options, index=default_idx)
+        else:
+            st.success(f"👋 שלום, {logged_in}!")
+            if st.button("🚪 התנתק", key="logout_btn"):
+                del st.session_state['tab3_logged_in']
+                st.rerun()
+            choice = logged_in
     else:
         # לא מחובר — צריך להזין PIN
         st.markdown("**כניסה לעדכון פרטים:**")
