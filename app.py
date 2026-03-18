@@ -865,7 +865,7 @@ with tab2:
                 except: return '' if s.lower() in ('nan','none') else s
             player_pin   = _sp(p.get('pin',''))
             player_phone = _sp(p.get('phone',''))
-            app_url      = "https://my-football-app.streamlit.app"
+            app_url      = "https://my-football-app-maupcjcb9vmwxrthq7nduu.streamlit.app"
             toggle_label = "🔴" if is_active else "🟢"
 
             # כפתורי עריכה + פעיל + מחיקה
