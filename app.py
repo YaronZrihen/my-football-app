@@ -631,6 +631,34 @@ if 'game_history' not in st.session_state:
 
 st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 
+# ---- טיפול בכניסה דרך קישור WhatsApp (query params) ----
+import urllib.parse as _up
+_qp_player = st.query_params.get("player", "")
+_qp_pin    = st.query_params.get("pin", "")
+if _qp_player and _qp_pin:
+    import math as _qm
+    def _clean_pin(v):
+        s = str(v or '').strip()
+        if s.lower() in ('nan','none',''): return ''
+        try:
+            f = float(s)
+            return '' if _qm.isnan(f) else str(int(f))
+        except: return s
+
+    _matched = next(
+        (p for p in st.session_state.players
+         if p['name'] == _qp_player and _clean_pin(p.get('pin','')) == _qp_pin.strip()),
+        None
+    )
+    if _matched and st.session_state.get('tab3_logged_in','') != _matched['name']:
+        st.session_state.tab3_logged_in = _matched['name']
+        st.session_state.edit_name      = _matched['name']
+        st.query_params.clear()
+        st.rerun()
+    elif not _matched:
+        st.warning("⚠️ קישור לא תקין או פג תוקף")
+        st.query_params.clear()
+
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
@@ -907,20 +935,6 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
-    import urllib.parse as _up
-
-    # ---- בדיקת query params לכניסה אוטומטית ----
-    qp_player = st.query_params.get("player", "")
-    qp_pin    = st.query_params.get("pin", "")
-    if qp_player and qp_pin:
-        matched = next((p for p in st.session_state.players
-                        if p['name'] == qp_player and str(p.get('pin','')) == qp_pin), None)
-        if matched and 'tab3_logged_in' not in st.session_state:
-            st.session_state.tab3_logged_in = matched['name']
-            st.session_state.edit_name = matched['name']
-            st.query_params.clear()
-            st.rerun()
-
     # ---- מצב לוגין ----
     # מנהל מחובר — גישה מלאה
     if st.session_state.get('admin_logged_in') and not st.session_state.get('tab3_logged_in'):
