@@ -766,6 +766,20 @@ if _qp_player and _qp_pin:
         st.warning("⚠️ קישור לא תקין או קוד שגוי")
         st.query_params.clear()
 
+# ---- handler החלפת שחקן בחלוקה ----
+_sw = st.query_params.get("sw", "")
+if _sw:
+    try:
+        _sw_tk, _sw_i = _sw.split("_")
+        _sw_i = int(_sw_i)
+        if _sw_tk == "t1" and 't1' in st.session_state and _sw_i < len(st.session_state.t1):
+            st.session_state.t2.append(st.session_state.t1.pop(_sw_i))
+        elif _sw_tk == "t2" and 't2' in st.session_state and _sw_i < len(st.session_state.t2):
+            st.session_state.t1.append(st.session_state.t2.pop(_sw_i))
+    except: pass
+    st.query_params.clear()
+    st.rerun()
+
 # ---- handlers למאגר (query params) ----
 _db_action = st.query_params.get("db_action", "")
 if _db_action:
@@ -858,29 +872,24 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                # שחקנים — HTML + כפתור st ליד כל שחקן
+                # שחקנים — HTML בלבד, כפתור 🔄 בתוך השורה דרך query param
+                rows_html = ""
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
-                    other_tk = "t2" if tk == "t1" else "t1"
-                    ci, cb = st.columns([6, 1])
-                    with ci:
-                        st.markdown(
-                            f"<div style='background:#1e293b;border-radius:6px;padding:9px 12px;"
-                            f"direction:rtl;text-align:right;font-size:16px;line-height:1.4;'>"
-                            f"<span style='color:#60a5fa;font-size:13px;margin-left:6px;'>{pnum_s}</span>"
-                            f"<b>{p['name']}</b> "
-                            f"<span style='color:#64748b;font-size:13px;'>({p['age']})</span>"
-                            f"<span style='color:{sc};font-size:14px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
-                    with cb:
-                        if st.button("🔄", key=f"sw_{tk}_{i}"):
-                            moved = st.session_state[tk].pop(i)
-                            st.session_state[other_tk].append(moved)
-                            st.rerun()
+                    rows_html += (
+                        f"<div style='display:flex;align-items:center;background:#1e293b;border-radius:6px;"
+                        f"padding:9px 10px;margin-bottom:5px;gap:6px;width:100%;box-sizing:border-box;'>"
+                        f"<span style='color:#60a5fa;font-size:13px;min-width:28px;text-align:right;'>{pnum_s}</span>"
+                        f"<span style='flex:1;font-size:16px;font-weight:bold;text-align:right;direction:rtl;'>"
+                        f"{p['name']} <span style='color:#64748b;font-size:13px;font-weight:normal;'>({p['age']})</span></span>"
+                        f"<span style='color:{sc};font-size:15px;font-weight:bold;min-width:32px;text-align:center;'>{p['score']:.1f}</span>"
+                        f"<a href='?sw={tk}_{i}' style='background:#334155;color:white;border-radius:5px;"
+                        f"padding:5px 9px;text-decoration:none;font-size:16px;flex-shrink:0;'>🔄</a>"
+                        f"</div>"
+                    )
+                st.markdown(rows_html, unsafe_allow_html=True)
 
             render_team(t1, "t1", "#1e3a5f", "⚪ לבן")
             render_team(t2, "t2", "#3a1e1e", "⚫ שחור")
