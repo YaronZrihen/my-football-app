@@ -727,6 +727,7 @@ if _qp_player and _qp_pin:
             if st.form_submit_button("💾 שמור", use_container_width=True):
                 _errs = []
                 if not _f_name.strip(): _errs.append("שם מלא")
+                if not _f_phone.strip(): _errs.append("מספר פלאפון")
                 if not _f_roles: _errs.append("תפקידים")
                 if not _f_rate: _errs.append("ציון עצמי")
                 _unrated = [n for n,v in _peer_res.items() if v is None]
@@ -747,8 +748,11 @@ if _qp_player and _qp_pin:
                     if _idx is not None:
                         st.session_state.players[_idx] = _new_entry
                     if save_to_gsheets(st.session_state.players):
-                        st.success(f"✅ {_f_name} נשמר בהצלחה!")
+                        st.balloons()
+                        st.success(f"✅ {_f_name} — הפרטים נשמרו בהצלחה! 🎉")
                         st.rerun()
+                    else:
+                        st.error("❌ שגיאה בשמירה — נסה שוב")
         st.stop()  # אל תציג את שאר האפליקציה
     else:
         st.warning("⚠️ קישור לא תקין או קוד שגוי")
@@ -1259,11 +1263,12 @@ with tab3:
             errors = []
             if not f_name.strip():
                 errors.append("שם מלא")
+            if not f_phone.strip():
+                errors.append("מספר פלאפון")
             if not f_roles:
                 errors.append("תפקידים")
             if not f_rate:
                 errors.append("ציון עצמי")
-            # בדיקה שכל השחקנים דורגו
             unrated = [name for name, val in peer_res.items() if val is None]
             if unrated and other_players:
                 errors.append(f"דירוג חסר: {', '.join(unrated)}")
@@ -1307,10 +1312,11 @@ with tab3:
                 # אין צורך לפזר לשורות אחרות
 
                 if save_to_gsheets(st.session_state.players):
-                    # לא טוענים מחדש מ-Sheets — session_state כבר מעודכן
                     st.session_state.edit_name = f_name.strip()
                     st.session_state.show_save_success = f_name.strip()
                     st.rerun()
+                else:
+                    st.error("❌ שגיאה בשמירה — נסה שוב")
 
 
 # ============================================================
