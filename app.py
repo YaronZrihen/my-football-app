@@ -766,6 +766,20 @@ if _qp_player and _qp_pin:
         st.warning("⚠️ קישור לא תקין או קוד שגוי")
         st.query_params.clear()
 
+# ---- handler החלפת שחקן בחלוקה ----
+_sw_req = st.query_params.get("_sw", "")
+if _sw_req and 't1' in st.session_state and 't2' in st.session_state:
+    try:
+        _sw_tk2, _sw_i2 = _sw_req.split("_", 1)
+        _sw_i2 = int(_sw_i2)
+        if _sw_tk2 == "t1" and _sw_i2 < len(st.session_state.t1):
+            st.session_state.t2.append(st.session_state.t1.pop(_sw_i2))
+        elif _sw_tk2 == "t2" and _sw_i2 < len(st.session_state.t2):
+            st.session_state.t1.append(st.session_state.t2.pop(_sw_i2))
+    except: pass
+    st.query_params.clear()
+    st.rerun()
+
 # ---- handlers למאגר (query params) ----
 _db_action = st.query_params.get("db_action", "")
 if _db_action:
@@ -858,21 +872,6 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                # שחקנים — שורת HTML עם קישור "החלף" בתוכה
-                # handler מטופל דרך query param _sw
-                _sw_req = st.query_params.get("_sw", "")
-                if _sw_req:
-                    try:
-                        _sw_tk2, _sw_i2 = _sw_req.split("_", 1)
-                        _sw_i2 = int(_sw_i2)
-                        if _sw_tk2 == "t1" and _sw_i2 < len(st.session_state.t1):
-                            st.session_state.t2.append(st.session_state.t1.pop(_sw_i2))
-                        elif _sw_tk2 == "t2" and _sw_i2 < len(st.session_state.t2):
-                            st.session_state.t1.append(st.session_state.t2.pop(_sw_i2))
-                    except: pass
-                    st.query_params.clear()
-                    st.rerun()
-
                 rows = ""
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
@@ -886,7 +885,7 @@ with tab1:
                         f"<span style='flex:1;font-size:15px;font-weight:bold;'>{p['name']} "
                         f"<span style='color:#64748b;font-size:12px;font-weight:normal;'>({p['age']})</span></span>"
                         f"<span style='color:{sc};font-size:14px;font-weight:bold;min-width:28px;text-align:center;'>{p['score']:.1f}</span>"
-                        f"<a href='?_sw={tk}_{i}' style='color:#94a3b8;font-size:12px;"
+                        f"<a href='?_sw={tk}_{i}' target='_top' style='color:#94a3b8;font-size:12px;"
                         f"text-decoration:none;white-space:nowrap;padding:3px 6px;"
                         f"background:#334155;border-radius:4px;'>החלף</a>"
                         f"</div>"
