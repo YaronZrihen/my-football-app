@@ -35,8 +35,8 @@ h1, h2, h3, p, label, span, div {
 }
 
 /* ===== כרטיס שחקן במאגר ===== */
-.card-name { font-size: 15px; font-weight: bold; color: #f1f5f9; direction: rtl; text-align: right; }
-.card-detail { font-size: 13px; color: #94a3b8; margin-top: 3px; }
+.card-name { font-size: 16px; font-weight: bold; color: #f1f5f9; direction: rtl; text-align: right; }
+.card-detail { font-size: 14px; color: #94a3b8; margin-top: 3px; }
 .p-score { color: #22c55e; font-size: 12px; font-weight: bold; }
 .team-stats {
     background: #0f172a; border-top: 2px solid #334155;
@@ -909,16 +909,15 @@ with tab2:
     # בדיקת הרשאת מנהל
     if not st.session_state.get('admin_logged_in'):
         st.markdown("**🔒 גישה למנהל בלבד**")
-        admin_col, admin_btn = st.columns([3, 1])
-        with admin_col:
-            admin_input = st.text_input("קוד מנהל:", type="password", label_visibility="collapsed", placeholder="קוד מנהל")
-        with admin_btn:
-            if st.button("כנס", key="admin_login"):
-                if admin_input == "2026":
-                    st.session_state.admin_logged_in = True
-                    st.rerun()
-                else:
-                    st.error("❌ קוד שגוי")
+        admin_input = st.text_input("קוד מנהל:", type="password",
+                                    label_visibility="collapsed",
+                                    placeholder="קוד מנהל")
+        if st.button("כנס →", key="admin_login", use_container_width=True):
+            if admin_input == "2026":
+                st.session_state.admin_logged_in = True
+                st.rerun()
+            else:
+                st.error("❌ קוד שגוי")
         st.stop()
 
     col_admin_out, _ = st.columns([1, 4])
@@ -1385,7 +1384,7 @@ with tab4:
             )
 
             # כפתורי קביעת מנצח — קומפקטי למובייל
-            cw1, cw2, cw3 = st.columns(3)
+            cw1, cw2, cw3 = st.columns([2, 2, 1])
             with cw1:
                 if st.button("🏆לבן", key=f"win1_{gi}", use_container_width=True,
                              type="primary" if winner == "לבן" else "secondary"):
