@@ -858,33 +858,29 @@ with tab1:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                # שחקנים — info בשורת HTML, כפתור החלפה כ-st.button
+                # כפתור החלפה + מידע: כפתור צר משמאל, מידע מימין
                 for i, p in enumerate(team):
                     pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
                     other_tk = "t2" if tk == "t1" else "t1"
-                    # שורה: מידע + כפתור ב-columns 8:1 (כפתור צר מאוד)
-                    ci, cb = st.columns([8, 1])
-                    with ci:
-                        st.markdown(
-                            f"<div style='background:#1e293b;border-radius:6px;padding:9px 12px;"
-                            f"direction:rtl;text-align:right;font-size:16px;line-height:1.4;"
-                            f"margin-bottom:2px;'>"
-                            f"<span style='color:#60a5fa;font-size:13px;margin-left:6px;'>{pnum_s}</span>"
-                            f"<b>{p['name']}</b> "
-                            f"<span style='color:#64748b;font-size:13px;font-weight:normal;'>({p['age']})</span>"
-                            f"<span style='color:{sc};font-size:15px;font-weight:bold;float:left;margin-top:1px;'>{p['score']:.1f}</span>"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+                    cb, ci = st.columns([1, 9])
                     with cb:
-                        st.markdown("<div style='margin-top:2px;'>", unsafe_allow_html=True)
                         if st.button("🔄", key=f"sw_{tk}_{i}", use_container_width=True):
                             moved = st.session_state[tk].pop(i)
                             st.session_state[other_tk].append(moved)
                             st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
+                    with ci:
+                        st.markdown(
+                            f"<div style='background:#1e293b;border-radius:6px;padding:8px 10px;"
+                            f"direction:rtl;text-align:right;font-size:15px;line-height:1.4;'>"
+                            f"<span style='color:#60a5fa;font-size:12px;margin-left:5px;'>{pnum_s}</span>"
+                            f"<b>{p['name']}</b> "
+                            f"<span style='color:#64748b;font-size:12px;font-weight:normal;'>({p['age']})</span>"
+                            f"<span style='color:{sc};font-size:14px;font-weight:bold;float:left;'>{p['score']:.1f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
 
             render_team(t1, "t1", "#1e3a5f", "⚪ לבן")
             render_team(t2, "t2", "#3a1e1e", "⚫ שחור")
