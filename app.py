@@ -35,7 +35,7 @@ h1, h2, h3, p, label, span, div {
 }
 
 /* ===== כרטיס שחקן במאגר ===== */
-.card-name { font-size: 16px; font-weight: bold; color: #f1f5f9; }
+.card-name { font-size: 15px; font-weight: bold; color: #f1f5f9; direction: rtl; text-align: right; }
 .card-detail { font-size: 13px; color: #94a3b8; margin-top: 3px; }
 .p-score { color: #22c55e; font-size: 12px; font-weight: bold; }
 .team-stats {
@@ -99,13 +99,16 @@ div[data-testid="stPills"] button[aria-checked="true"] {
 .team-header {
     background: #1e3a5f; border-radius: 8px 8px 0 0;
     padding: 8px; text-align: center;
-    font-weight: bold; font-size: 15px;
+    font-weight: bold; font-size: 15px; direction: rtl; text-align: right;
     width: 100%; box-sizing: border-box;
 }
 
 /* ===== כפתורי Streamlit — גודל מינימלי למובייל ===== */
 @media (max-width: 480px) {
-    .stButton button { font-size: 12px !important; padding: 4px 6px !important; min-width: 0 !important; }
+    .stButton button { font-size: 13px !important; padding: 5px 6px !important; min-width: 0 !important; }
+    .p-box { font-size: 14px !important; }
+    .team-header { font-size: 15px !important; }
+    .database-card { font-size: 14px !important; }
 }
 
 [data-testid="stHorizontalBlock"] {
@@ -685,43 +688,53 @@ with tab1:
             avg1 = balance_score(t1); age1 = sum(p['age'] for p in t1)/len(t1) if t1 else 0
             avg2 = balance_score(t2); age2 = sum(p['age'] for p in t2)/len(t2) if t2 else 0
 
-            # כותרת לבן
-            st.markdown(f"<div class='team-header'>⚪ לבן ({len(t1)}) <span style='font-size:11px;font-weight:normal;'>| רמה {avg1:.1f} | גיל {age1:.1f}</span></div>", unsafe_allow_html=True)
-            for i, p in enumerate(t1):
-                pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
-                pnum_s = f"#{pnum}" if pnum else ""
-                sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
-                col_info, col_btn = st.columns([6, 1])
-                with col_info:
-                    st.markdown(
-                        f"<div class='p-box' style='font-size:13px;padding:6px 8px;direction:rtl;text-align:right;width:100%;box-sizing:border-box;'>"
-                        f"<span style='color:#60a5fa;font-size:10px;margin-left:4px;'>{pnum_s}</span>"
-                        f"{p['name']} <span style='color:#64748b;font-size:10px;'>({p['age']})</span>"
-                        f"<span style='color:{sc};font-size:11px;font-weight:bold;margin-right:4px;'>{p['score']:.1f}</span>"
-                        f"</div>", unsafe_allow_html=True)
-                with col_btn:
-                    if st.button("🔄", key=f"sw_t1_{i}"):
-                        st.session_state.t2.append(st.session_state.t1.pop(i))
-                        st.rerun()
+            # בדיקת swap דרך query param
+            _swap = st.query_params.get("sw", "")
+            if _swap:
+                try:
+                    _tk, _idx = _swap.split("_")
+                    _idx = int(_idx)
+                    if _tk == "t1" and _idx < len(st.session_state.t1):
+                        st.session_state.t2.append(st.session_state.t1.pop(_idx))
+                    elif _tk == "t2" and _idx < len(st.session_state.t2):
+                        st.session_state.t1.append(st.session_state.t2.pop(_idx))
+                except: pass
+                st.query_params.clear()
+                st.rerun()
 
-            # כותרת שחור
-            st.markdown(f"<div class='team-header' style='background:#3a1e1e;margin-top:8px;'>⚫ שחור ({len(t2)}) <span style='font-size:11px;font-weight:normal;'>| רמה {avg2:.1f} | גיל {age2:.1f}</span></div>", unsafe_allow_html=True)
-            for i, p in enumerate(t2):
-                pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
-                pnum_s = f"#{pnum}" if pnum else ""
-                sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
-                col_info, col_btn = st.columns([6, 1])
-                with col_info:
-                    st.markdown(
-                        f"<div class='p-box' style='font-size:13px;padding:6px 8px;direction:rtl;text-align:right;width:100%;box-sizing:border-box;'>"
-                        f"<span style='color:#60a5fa;font-size:10px;margin-left:4px;'>{pnum_s}</span>"
-                        f"{p['name']} <span style='color:#64748b;font-size:10px;'>({p['age']})</span>"
-                        f"<span style='color:{sc};font-size:11px;font-weight:bold;margin-right:4px;'>{p['score']:.1f}</span>"
-                        f"</div>", unsafe_allow_html=True)
-                with col_btn:
-                    if st.button("🔄", key=f"sw_t2_{i}"):
-                        st.session_state.t1.append(st.session_state.t2.pop(i))
-                        st.rerun()
+            def team_html(team, tk, header_bg, title):
+                rows = ""
+                for i, p in enumerate(team):
+                    pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']), '')
+                    pnum_s = f"#{pnum}" if pnum else ""
+                    sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
+                    rows += (
+                        f"<div style='display:flex;align-items:center;background:#1e293b;border-radius:6px;"
+                        f"padding:7px 10px;margin-bottom:4px;gap:6px;width:100%;box-sizing:border-box;'>"
+                        f"<span style='color:#60a5fa;font-size:12px;min-width:26px;text-align:right;'>{pnum_s}</span>"
+                        f"<span style='flex:1;font-size:14px;text-align:right;'>{p['name']}"
+                        f" <span style='color:#64748b;font-size:11px;'>({p['age']})</span></span>"
+                        f"<span style='color:{sc};font-size:13px;font-weight:bold;min-width:30px;text-align:center;'>{p['score']:.1f}</span>"
+                        f"<a href='?sw={tk}_{i}' style='background:#334155;color:white;border-radius:5px;"
+                        f"padding:4px 8px;text-decoration:none;font-size:15px;flex-shrink:0;'>🔄</a>"
+                        f"</div>"
+                    )
+                avg = balance_score(team)
+                age_avg = sum(p['age'] for p in team)/len(team) if team else 0
+                return (
+                    f"<div style='background:{header_bg};border-radius:8px 8px 0 0;padding:9px 12px;"
+                    f"text-align:center;font-weight:bold;font-size:15px;direction:rtl;'>"
+                    f"{title} ({len(team)})"
+                    f"<span style='font-size:11px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
+                    f"</div>"
+                    f"<div style='padding:6px;background:#0f172a;border-radius:0 0 8px 8px;margin-bottom:10px;'>{rows}</div>"
+                )
+
+            st.markdown(
+                team_html(t1, "t1", "#1e3a5f", "⚪ לבן") +
+                team_html(t2, "t2", "#3a1e1e", "⚫ שחור"),
+                unsafe_allow_html=True
+            )
 
 
 
@@ -853,37 +866,47 @@ with tab2:
                 unsafe_allow_html=True
             )
 
-            st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-            ce, ct, cw, cd = st.columns([4, 1, 1, 1])
-            with ce:
-                if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
+            # כפתורי פעולה — ערוך + WhatsApp כ-HTML, פעיל/מחיקה כ-st.button
+            player_pin   = str(p.get('pin','') or '')
+            player_phone = str(p.get('phone','') or '')
+            app_url      = "https://my-football-app.streamlit.app"
+            import urllib.parse as _up
+
+            wa_btn = ""
+            if player_pin and player_phone:
+                link   = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
+                wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד: {player_pin}"
+                wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
+                wa_btn = f"<a href='{wa_url}' target='_blank' style='background:#25d366;color:white;border-radius:6px;padding:6px 12px;text-decoration:none;font-size:15px;white-space:nowrap;'>💬</a>"
+
+            # כפתור ערוך כ-HTML (מפנה לטאב עדכון)
+            edit_key   = f"db_ed_{p['name']}"
+            toggle_key = f"db_tog_{p['name']}"
+            del_key    = f"db_dl_{p['name']}"
+            toggle_label = "🔴" if is_active else "🟢"
+
+            # שורת כפתורים — ערוך ו-WhatsApp כ-HTML, שאר כ-st
+            st.markdown(
+                f"<div style='display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:nowrap;width:100%;box-sizing:border-box;'>"
+                f"{wa_btn}"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            cb1, cb2, cb3 = st.columns([3, 1, 1])
+            with cb1:
+                if st.button("📝 ערוך", key=edit_key, use_container_width=True):
                     st.session_state.edit_name = p['name']
                     st.session_state.nav_to_edit = True
                     st.rerun()
-            with cw:
-                player_pin  = str(p.get('pin','') or '')
-                player_phone = str(p.get('phone','') or '')
-                app_url = "https://my-football-app.streamlit.app"
-                if player_pin and player_phone:
-                    import urllib.parse as _up
-                    link = f"{app_url}/?player={_up.quote(p['name'])}&pin={player_pin}"
-                    wa_msg = f"שלום {p['name'].split()[0]}! קישור לעדכון פרטייך: {link} | קוד כניסה: {player_pin}"
-                    wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
-                    st.markdown(f"<a href='{wa_url}' target='_blank' style='display:block;text-align:center;background:#25d366;color:white;border-radius:6px;padding:4px;font-size:16px;text-decoration:none;'>💬</a>", unsafe_allow_html=True)
-                else:
-                    st.markdown("<span style='color:#4a5568;font-size:16px;display:block;text-align:center;'>💬</span>", unsafe_allow_html=True)
-            with ct:
-                toggle_label = "🔴" if is_active else "🟢"
-                if st.button(toggle_label, key=f"db_tog_{p['name']}", use_container_width=True):
+            with cb2:
+                if st.button(toggle_label, key=toggle_key, use_container_width=True):
                     idx = next(i for i, x in enumerate(st.session_state.players) if x['name'] == p['name'])
                     st.session_state.players[idx]['active'] = str(not is_active)
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
-            with cd:
-                if st.button("🗑️", key=f"db_dl_{p['name']}", use_container_width=True):
-                    st.session_state.players = [
-                        x for x in st.session_state.players if x['name'] != p['name']
-                    ]
+            with cb3:
+                if st.button("🗑️", key=del_key, use_container_width=True):
+                    st.session_state.players = [x for x in st.session_state.players if x['name'] != p['name']]
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
 
@@ -1190,7 +1213,7 @@ with tab4:
             # כפתורי קביעת מנצח — קומפקטי למובייל
             cw1, cw2, cw3 = st.columns(3)
             with cw1:
-                if st.button("🏆 לבן", key=f"win1_{gi}", use_container_width=True,
+                if st.button("🏆לבן", key=f"win1_{gi}", use_container_width=True,
                              type="primary" if winner == "לבן" else "secondary"):
                     history[gi]["winner"] = "לבן"
                     st.session_state.game_history = history
@@ -1199,7 +1222,7 @@ with tab4:
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cw2:
-                if st.button("🏆 שחור", key=f"win2_{gi}", use_container_width=True,
+                if st.button("🏆שחור", key=f"win2_{gi}", use_container_width=True,
                              type="primary" if winner == "שחור" else "secondary"):
                     history[gi]["winner"] = "שחור"
                     st.session_state.game_history = history
@@ -1208,7 +1231,7 @@ with tab4:
                     save_to_gsheets(st.session_state.players)
                     st.rerun()
             with cw3:
-                if winner and st.button("↩️ בטל", key=f"win3_{gi}", use_container_width=True):
+                if winner and st.button("↩בטל", key=f"win3_{gi}", use_container_width=True):
                     history[gi]["winner"] = ""
                     st.session_state.game_history = history
                     _recalc_win_points(st.session_state.players, history)
