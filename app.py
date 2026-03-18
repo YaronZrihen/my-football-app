@@ -860,9 +860,15 @@ with tab2:
             import urllib.parse as _up
             import math as _m
             def _sp(v):
-                s = str(v or '')
-                try: return '' if _m.isnan(float(s)) else s
-                except: return '' if s.lower() in ('nan','none') else s
+                """המר float ל-int string, טפל ב-NaN."""
+                s = str(v or '').strip()
+                if s.lower() in ('nan','none',''):
+                    return ''
+                try:
+                    f = float(s)
+                    return '' if _m.isnan(f) else str(int(f))
+                except:
+                    return s
             player_pin   = _sp(p.get('pin',''))
             player_phone = _sp(p.get('phone',''))
             app_url      = "https://my-football-app-maupcjcb9vmwxrthq7nduu.streamlit.app"
@@ -1011,16 +1017,24 @@ with tab3:
 
         # PIN — מיד מתחת למספר שחקן
         import math as _math
-        def _valid_pin(v):
-            if not v or v in ('', 'nan', 'NaN', 'None'):
-                return False
-            try:
-                return not _math.isnan(float(v))
-            except:
-                return str(v).strip() != ''
 
-        existing_pin = str(p_data.get('pin','') or '') if p_data else ''
-        if _valid_pin(existing_pin):
+        def _clean_num(v):
+            """המר float כמו 6536.0 ל-'6536', טפל ב-NaN."""
+            if v is None or v == '':
+                return ''
+            s = str(v).strip()
+            if s.lower() in ('nan', 'none', 'null'):
+                return ''
+            try:
+                f = float(s)
+                if _math.isnan(f):
+                    return ''
+                return str(int(f))
+            except:
+                return s
+
+        existing_pin = _clean_num(p_data.get('pin','')) if p_data else ''
+        if existing_pin:
             st.markdown(
                 f"<div style='color:#94a3b8;font-size:13px;margin-bottom:8px;'>"
                 f"🔑 קוד כניסה: <b style='color:#60a5fa;'>{existing_pin}</b></div>",
@@ -1042,9 +1056,20 @@ with tab3:
             value=p_data['name'] if p_data else "",
             placeholder="הכנס שם מלא"
         )
-        # טיפול בטוח בטלפון
-        _raw_phone = str(p_data.get('phone','') or '') if p_data else ''
-        _safe_phone = '' if _raw_phone.lower() in ('nan','none','') else _raw_phone
+        # טיפול בטוח בטלפון — המר 525623891.0 ל-'0525623891'
+        _raw_phone = p_data.get('phone','') if p_data else ''
+        try:
+            _fp = float(str(_raw_phone or 0))
+            import math as _m2
+            if _m2.isnan(_fp) or _fp == 0:
+                _safe_phone = ''
+            else:
+                # אם מספר ישראלי — הוסף 0 בהתחלה אם חסר
+                _int_phone = str(int(_fp))
+                _safe_phone = ('0' + _int_phone) if len(_int_phone) == 9 else _int_phone
+        except:
+            _s = str(_raw_phone or '').strip()
+            _safe_phone = '' if _s.lower() in ('nan','none','') else _s
         f_phone = st.text_input(
             "מספר פלאפון",
             value=_safe_phone,
