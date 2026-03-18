@@ -655,6 +655,11 @@ if _qp_player and _qp_pin:
     )
     if _matched:
         # הצג רק את טופס העריכה — ללא טאבים
+        # חיווי שמירה מוצלחת
+        if st.session_state.pop('wa_save_success', False):
+            st.success(f"✅ הפרטים נשמרו בהצלחה!")
+            st.markdown("<script>window.scrollTo(0,0);</script>", unsafe_allow_html=True)
+
         st.markdown(f"### ✏️ עדכון פרטים — {_matched['name']}")
         st.markdown(f"<div style='color:#94a3b8;font-size:13px;margin-bottom:12px;'>מחובר בתור: <b style='color:#60a5fa;'>{_matched['name']}</b></div>", unsafe_allow_html=True)
 
@@ -748,8 +753,7 @@ if _qp_player and _qp_pin:
                     if _idx is not None:
                         st.session_state.players[_idx] = _new_entry
                     if save_to_gsheets(st.session_state.players):
-                        st.balloons()
-                        st.success(f"✅ {_f_name} — הפרטים נשמרו בהצלחה! 🎉")
+                        st.session_state.wa_save_success = True
                         st.rerun()
                     else:
                         st.error("❌ שגיאה בשמירה — נסה שוב")
