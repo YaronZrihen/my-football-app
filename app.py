@@ -240,38 +240,92 @@ def balance_score(team: list) -> float:
 # 3. אלגוריתם חלוקה חכם (Snake Draft + אופטימיזציה)
 # ============================================================
 
-def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
-    """
-    חלוקה מאוזנת בשיטת Snake Draft + 100 סיבובי אופטימיזציה.
+# קבוצות תפקידים לתבנית
+ROLE_GROUPS = {
+    "שוער":      "שוערים",
+    "בלם":       "מגנים",
+    "מגן ימין":  "מגנים",
+    "מגן שמאל":  "מגנים",
+    "קשר אחורי": "קשרים",
+    "קשר קדמי":  "קשרים",
+    "אגף ימין":  "קשרים",
+    "אגף שמאל":  "קשרים",
+    "חלוץ":      "חלוצים",
+}
 
-    Snake Draft: 1→t1, 2→t2, 3→t2, 4→t1, 5→t1, 6→t2 ...
-    לאחר מכן מנסים להחליף שחקנים בין הקבוצות ולשפר איזון.
+def get_player_role(player_data: dict) -> str:
+    """מחזיר תפקיד עיקרי, ואם אין — תפקיד ראשון מהרשימה."""
+    primary = str(player_data.get('primary_role','') or '').strip()
+    if primary and primary not in ('nan','none',''):
+        return primary
+    roles = safe_split(player_data.get('roles',''))
+    return roles[0] if roles else ''
+
+
+def divide_teams(selected_names: list, players_data: list,
+                 formation: dict | None = None) -> tuple[list, list, list]:
     """
-    # בניית pool עם ציונים
+    חלוקה מאוזנת עם תמיכה בתבנית משחק.
+    formation = {"שוערים": 1, "מגנים": 3, "קשרים": 3, "חלוצים": 2}
+    מחזיר: t1, t2, missing_roles (תפקידים חסרים)
+    """
     pool = []
     for name in selected_names:
         p = next((x for x in players_data if x['name'] == name), None)
         if p:
+            role = get_player_role(p)
+            group = ROLE_GROUPS.get(role, 'אחר')
             pool.append({
                 'name': name,
-                'score': get_player_score(p),
-                'age': get_player_age(p)
+                'score': get_player_score(p, players_data),
+                'age': get_player_age(p),
+                'role': role,
+                'group': group,
             })
 
-    # מיון לפי ציון יורד
-    pool.sort(key=lambda x: x['score'], reverse=True)
+    if not formation:
+        # ללא תבנית — Snake Draft רגיל
+        pool.sort(key=lambda x: x['score'], reverse=True)
+        t1, t2 = [], []
+        for i, player in enumerate(pool):
+            block = i // 2
+            pos_in_block = i % 2
+            if block % 2 == 0:
+                (t1 if pos_in_block == 0 else t2).append(player)
+            else:
+                (t2 if pos_in_block == 0 else t1).append(player)
+    else:
+        # חלוקה לפי תבנית — מפזר כל קבוצת תפקידים בנפרד
+        t1, t2 = [], []
+        used = set()
+        for group, needed in formation.items():
+            group_players = sorted(
+                [p for p in pool if p['group'] == group],
+                key=lambda x: x['score'], reverse=True
+            )
+            # חלק N שחקנים מקבוצה זו (N = needed * 2 לשתי קבוצות)
+            to_assign = group_players[:needed * 2]
+            for i, player in enumerate(to_assign):
+                (t1 if i % 2 == 0 else t2).append(player)
+                used.add(player['name'])
+        # שחקנים ללא תפקיד מוגדר — חלק לפי ציון
+        remaining = sorted([p for p in pool if p['name'] not in used],
+                           key=lambda x: x['score'], reverse=True)
+        for i, player in enumerate(remaining):
+            (t1 if i % 2 == 0 else t2).append(player)
 
-    t1, t2 = [], []
-    for i, player in enumerate(pool):
-        # Snake Draft pattern: 0→t1, 1→t2, 2→t2, 3→t1, 4→t1, 5→t2...
-        block = i // 2
-        pos_in_block = i % 2
-        if block % 2 == 0:
-            (t1 if pos_in_block == 0 else t2).append(player)
-        else:
-            (t2 if pos_in_block == 0 else t1).append(player)
+    # בדיקת תפקידים חסרים
+    missing = []
+    if formation:
+        for group, needed in formation.items():
+            t1_count = sum(1 for p in t1 if p['group'] == group)
+            t2_count = sum(1 for p in t2 if p['group'] == group)
+            if t1_count < needed:
+                missing.append(f"לבן חסר {needed-t1_count} {group}")
+            if t2_count < needed:
+                missing.append(f"שחור חסר {needed-t2_count} {group}")
 
-    # אופטימיזציה: ניסיון החלפות לשיפור איזון
+    # אופטימיזציה: החלפות לשיפור איזון
     improved = True
     iterations = 0
     while improved and iterations < 200:
@@ -280,15 +334,14 @@ def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
         for i in range(len(t1)):
             for j in range(len(t2)):
                 diff_before = abs(balance_score(t1) - balance_score(t2))
-                # ניסיון החלפה
                 t1[i], t2[j] = t2[j], t1[i]
                 diff_after = abs(balance_score(t1) - balance_score(t2))
                 if diff_after < diff_before:
-                    improved = True  # שיפור! נשמור את ההחלפה
+                    improved = True
                 else:
-                    t1[i], t2[j] = t2[j], t1[i]  # ביטול החלפה
+                    t1[i], t2[j] = t2[j], t1[i]
 
-    return t1, t2
+    return t1, t2, missing
 
 
 
@@ -822,15 +875,32 @@ with tab1:
         st.markdown(f"<p style='color:{color}; font-weight:bold;'>נבחרו: {count} שחקנים</p>",
                     unsafe_allow_html=True)
 
+        # תבנית משחק
+        with st.expander("⚽ תבנית משחק (אופציונלי)"):
+            use_formation = st.toggle("הפעל תבנית", value=st.session_state.get('use_formation', False), key="use_formation")
+            if use_formation:
+                st.markdown("<small>הגדר כמה שחקנים מכל קבוצה בכל קבוצה</small>", unsafe_allow_html=True)
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                with fc1: n_gk  = st.number_input("שוערים", 0, 3, st.session_state.get('f_gk',1),  key="f_gk")
+                with fc2: n_def = st.number_input("מגנים",  0, 6, st.session_state.get('f_def',3), key="f_def")
+                with fc3: n_mid = st.number_input("קשרים",  0, 6, st.session_state.get('f_mid',3), key="f_mid")
+                with fc4: n_fwd = st.number_input("חלוצים", 0, 4, st.session_state.get('f_fwd',2), key="f_fwd")
+                total = n_gk + n_def + n_mid + n_fwd
+                st.caption(f"סה״כ: {total} שחקנים לכל קבוצה (={total*2} בסך הכל)")
+                formation = {"שוערים": n_gk, "מגנים": n_def, "קשרים": n_mid, "חלוצים": n_fwd}
+            else:
+                formation = None
+
         divide_clicked = st.button("חלק קבוצות 🚀", use_container_width=True, disabled=count < 2)
         reshuffle_clicked = st.button("ערבב מחדש 🔀", use_container_width=True, disabled=count < 2)
 
         if divide_clicked or reshuffle_clicked:
             if selected_names:
-                t1, t2 = divide_teams(selected_names, st.session_state.players)
+                t1, t2, missing = divide_teams(selected_names, st.session_state.players, formation)
                 st.session_state.t1 = t1
                 st.session_state.t2 = t2
                 st.session_state.teams_generated = True
+                st.session_state.missing_roles = missing
 
         # הצגת קבוצות
         if st.session_state.teams_generated and selected_names and \
@@ -843,6 +913,10 @@ with tab1:
                 f"פער בין קבוצות: {diff:.2f}</p>",
                 unsafe_allow_html=True
             )
+            # הצג תפקידים חסרים
+            missing = st.session_state.get('missing_roles', [])
+            if missing:
+                st.warning("⚠️ תפקידים חסרים: " + " | ".join(missing))
 
             # תצוגת קבוצות קומפקטית עם כפתורי החלפה
             t1 = st.session_state.t1
