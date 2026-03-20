@@ -864,12 +864,15 @@ if _db_action:
     st.query_params.clear()
     st.rerun()
 
-st.markdown(
-    "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-    "<div class='sub-title'>נכתב ע״י ירון זריהן"
-    " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-    unsafe_allow_html=True
-)
+with st.sidebar:
+    st.markdown(
+        "<div style='text-align:center;padding:10px 0 4px;'>"
+        "<span style='font-size:22px;font-weight:bold;color:#60a5fa;'>⚽ ניהול כדורגל 2026</span><br>"
+        "<span style='font-size:11px;color:#4a5568;'>נכתב ע״י ירון זריהן | v2.0 · מרץ 2026</span>"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
