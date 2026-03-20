@@ -1162,6 +1162,31 @@ with tab3:
     else:
         auto_num = len(st.session_state.players) + 1
 
+    # תפקידים + תפקיד עיקרי — מחוץ לטופס כדי לאפשר עדכון דינמי
+    ROLES_OUT = ["שוער", "בלם", "מגן ימין", "מגן שמאל", "קשר אחורי", "קשר קדמי", "אגף ימין", "אגף שמאל", "חלוץ"]
+    existing_roles_out = safe_split(p_data.get('roles', '')) if p_data else []
+    existing_primary_out = str(p_data.get('primary_role','') or '') if p_data else ''
+
+    st.markdown("**תפקידים *** (בחר תפקידים, לאחר מכן בחר תפקיד עיקרי)")
+    selected_roles = st.pills(
+        "תפקידים",
+        ROLES_OUT,
+        selection_mode="multi",
+        default=[r for r in existing_roles_out if r in ROLES_OUT],
+        key=f"roles_out_{choice}",
+        label_visibility="collapsed",
+    )
+    if selected_roles:
+        _pr_default = existing_primary_out if existing_primary_out in selected_roles else selected_roles[0]
+        selected_primary = st.selectbox(
+            "⭐ תפקיד עיקרי:",
+            options=selected_roles,
+            index=selected_roles.index(_pr_default) if _pr_default in selected_roles else 0,
+            key=f"primary_out_{choice}",
+        )
+    else:
+        selected_primary = ""
+
     with st.form("edit_form", clear_on_submit=False):
         # מספר שחקן — מעל השם
         st.markdown(
@@ -1239,28 +1264,9 @@ with tab3:
             value=int(p_data['birth_year']) if p_data else 1990
         )
 
-        # תפקידים
-        ROLES = ["שוער", "בלם", "מגן ימין", "מגן שמאל", "קשר אחורי", "קשר קדמי", "אגף ימין", "אגף שמאל", "חלוץ"]
-        existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
-        existing_primary = str(p_data.get('primary_role','') or '') if p_data else ''
-        f_roles = st.pills(
-            "תפקידים * (לבחירת תפקיד עיקרי — בחר תחילה ואז לחץ שנית)",
-            ROLES,
-            selection_mode="multi",
-            default=[r for r in existing_roles if r in ROLES]
-        )
-        # תפקיד עיקרי — selectbox מתוך התפקידים שנבחרו
-        if f_roles:
-            _primary_default = existing_primary if existing_primary in f_roles else f_roles[0]
-            _primary_idx = f_roles.index(_primary_default) if _primary_default in f_roles else 0
-            f_primary_role = st.selectbox(
-                "⭐ תפקיד עיקרי:",
-                options=f_roles,
-                index=_primary_idx,
-                key=f"primary_{choice}",
-            )
-        else:
-            f_primary_role = ""
+        # תפקידים נלקחים מבחירה מחוץ לטופס
+        f_roles = selected_roles
+        f_primary_role = selected_primary
 
         # ציון עצמי
         existing_rating = str(int(p_data['rating'])) if p_data and str(p_data.get('rating','')).replace('.','').isdigit() and int(float(p_data.get('rating',0))) > 0 else None
