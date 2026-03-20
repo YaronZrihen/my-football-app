@@ -27,20 +27,25 @@ h1, h2, h3, p, label, span, div {
 
 /* ===== כותרת ===== */
 .main-title {
-    font-size: 26px;
+    font-size: 20px;
     text-align: center !important;
     font-weight: bold;
-    margin-bottom: 2px;
+    margin: 4px 0 0 0;
     color: #60a5fa;
     letter-spacing: 1px;
     direction: rtl;
+    line-height: 1.2;
 }
 .sub-title {
-    font-size: 12px;
+    font-size: 11px;
     text-align: center !important;
     color: #4a5568;
-    margin-bottom: 16px;
+    margin: 0 0 6px 0;
     direction: rtl;
+}
+@media (max-width: 480px) {
+    .main-title { font-size: 17px !important; margin: 2px 0 0 0 !important; }
+    .sub-title  { font-size: 10px !important; margin: 0 0 4px 0 !important; }
 }
 
 /* ===== כרטיס שחקן במאגר ===== */
