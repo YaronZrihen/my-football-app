@@ -9,6 +9,13 @@ import json
 # ============================================================
 st.set_page_config(page_title="ניהול כדורגל 2026", layout="centered")
 
+# כותרת ראשית — מוצגת תמיד בכל הטאבים
+st.markdown(
+    "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
+    "<div class='sub-title'>נכתב ע״י ירון זריהן &nbsp;|&nbsp; <span style='color:#334155;'>v2.0 · מרץ 2026</span></div>",
+    unsafe_allow_html=True
+)
+
 st.markdown("""
 <style>
 /* ===== בסיס ===== */
@@ -29,9 +36,17 @@ h1, h2, h3, p, label, span, div {
     font-size: 26px;
     text-align: center !important;
     font-weight: bold;
-    margin-bottom: 18px;
+    margin-bottom: 4px;
     color: #60a5fa;
     letter-spacing: 1px;
+    direction: rtl;
+}
+.sub-title {
+    font-size: 12px;
+    text-align: center !important;
+    color: #4a5568;
+    margin-bottom: 16px;
+    direction: rtl;
 }
 
 /* ===== כרטיס שחקן במאגר ===== */
@@ -697,8 +712,6 @@ if 'game_history' not in st.session_state:
 # ============================================================
 # 6. ממשק ראשי
 # ============================================================
-
-st.markdown("<div class='main-title'>⚽ ניהול כדורגל 2026</div>", unsafe_allow_html=True)
 
 # ---- טיפול בכניסה דרך קישור WhatsApp (query params) ----
 import urllib.parse as _up
