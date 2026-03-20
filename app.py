@@ -24,19 +24,6 @@ h1, h2, h3, p, label, span, div {
 }
 .block-container { padding: 12px !important; max-width: 700px; margin: auto; }
 
-/* ===== כותרת קבועה בכל הטאבים ===== */
-[data-testid="stHeader"] {
-    background: #0f1117 !important;
-}
-[data-testid="stHeader"]::after {
-    content: "⚽ ניהול כדורגל 2026";
-    display: block;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    color: #60a5fa;
-    padding: 10px 0 2px;
-}
 
 /* ===== כותרת ===== */
 .main-title {
