@@ -864,7 +864,7 @@ with tab1:
                     f"padding:10px 14px;text-align:center;font-weight:bold;font-size:17px;"
                     f"direction:rtl;margin-top:8px;'>"
                     f"{title} ({len(team)})"
-                    f"<span style='font-size:13px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
+                    f"<span style='font-size:15px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
