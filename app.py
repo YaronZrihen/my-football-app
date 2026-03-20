@@ -1051,18 +1051,22 @@ with tab2:
                            f"border-radius:6px;padding:6px 10px;text-decoration:none;font-size:14px;"
                            f"white-space:nowrap;text-align:center;'>💬</a>")
 
+            # כפתור ערוך — st.button (חייב לעבוד)
+            # toggle + delete + WA — HTML flex
             st.markdown(
-                f"<div style='display:flex;gap:5px;margin:4px 0;width:100%;box-sizing:border-box;'>"
-                f"<a href='?db_action=edit|{_pn_enc}' style='background:#1e3a5f;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:13px;flex:3;text-align:center;'>📝 ערוך</a>"
-                f"<a href='?db_action=toggle|{_pn_enc}' style='background:#334155;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
+                f"<div style='display:flex;gap:5px;margin:4px 0 2px;width:100%;box-sizing:border-box;'>"
+                f"<a href='?db_action=toggle|{_pn_enc}' target='_top' style='background:#334155;color:white;border-radius:6px;"
+                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
                 f"{_wa_btn}"
-                f"<a href='?db_action=delete|{_pn_enc}' style='background:#7f1d1d;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
+                f"<a href='?db_action=delete|{_pn_enc}' target='_top' style='background:#7f1d1d;color:white;border-radius:6px;"
+                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
                 f"</div>",
                 unsafe_allow_html=True
             )
+            if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
+                st.session_state.edit_name = p['name']
+                st.session_state.nav_to_edit = True
+                st.rerun()
 
             st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
 
