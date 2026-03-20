@@ -283,10 +283,12 @@ def divide_teams(selected_names: list, players_data: list,
                 'group': group,
             })
 
+    # Snake Draft בסיסי — תמיד
+    pool.sort(key=lambda x: x['score'], reverse=True)
+    t1, t2 = [], []
+
     if not formation:
         # ללא תבנית — Snake Draft רגיל
-        pool.sort(key=lambda x: x['score'], reverse=True)
-        t1, t2 = [], []
         for i, player in enumerate(pool):
             block = i // 2
             pos_in_block = i % 2
@@ -295,24 +297,28 @@ def divide_teams(selected_names: list, players_data: list,
             else:
                 (t2 if pos_in_block == 0 else t1).append(player)
     else:
-        # חלוקה לפי תבנית — מפזר כל קבוצת תפקידים בנפרד
-        t1, t2 = [], []
+        # חלוקה לפי תבנית:
+        # 1. לכל קבוצת תפקידים — חלק לפי Snake Draft בתוך הקבוצה
+        # 2. שחקנים עודפים/ללא תפקיד — Snake Draft לפי ציון
         used = set()
         for group, needed in formation.items():
-            group_players = sorted(
-                [p for p in pool if p['group'] == group],
-                key=lambda x: x['score'], reverse=True
-            )
-            # חלק N שחקנים מקבוצה זו (N = needed * 2 לשתי קבוצות)
-            to_assign = group_players[:needed * 2]
-            for i, player in enumerate(to_assign):
-                (t1 if i % 2 == 0 else t2).append(player)
+            if needed == 0:
+                continue
+            group_players = [p for p in pool if p['group'] == group]
+            # חלק שניים לכל צד (needed שחקנים בכל צד)
+            for i, player in enumerate(group_players):
+                side = i % 2  # 0=t1, 1=t2
+                (t1 if side == 0 else t2).append(player)
                 used.add(player['name'])
-        # שחקנים ללא תפקיד מוגדר — חלק לפי ציון
-        remaining = sorted([p for p in pool if p['name'] not in used],
-                           key=lambda x: x['score'], reverse=True)
+
+        # שחקנים שלא הוקצו — חלק לפי Snake Draft כדי לאזן מספרית
+        remaining = [p for p in pool if p['name'] not in used]
         for i, player in enumerate(remaining):
-            (t1 if i % 2 == 0 else t2).append(player)
+            # תמיד תן לצד הקטן יותר
+            if len(t1) <= len(t2):
+                t1.append(player)
+            else:
+                t2.append(player)
 
     # בדיקת תפקידים חסרים
     missing = []
