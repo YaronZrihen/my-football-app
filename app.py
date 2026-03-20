@@ -594,7 +594,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active', 'win_points', 'phone', 'pin']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'primary_role', 'peer_ratings', 'active', 'win_points', 'phone', 'pin']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -981,6 +981,7 @@ with tab2:
         for i, p in enumerate(filtered_with_scores):
             age = get_player_age(p)
             roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
+            primary_role = str(p.get('primary_role','') or '')
             is_active = is_player_active(p)
 
             # ציונים
@@ -1011,7 +1012,7 @@ with tab2:
                 f"<div class='database-card'>"
                 f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
                 f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge} {wins_str}</div>"
-                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}</div>"
+                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}" + (f" | <b style='color:#f59e0b;'>⭐ {primary_role}</b>" if primary_role else "") + "</div>"
                 f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
                 f"{score_badge('אישי', self_rating)}"
                 f"<span style='color:#4a5568;font-size:12px;'>|</span>"
@@ -1241,12 +1242,25 @@ with tab3:
         # תפקידים
         ROLES = ["שוער", "בלם", "מגן ימין", "מגן שמאל", "קשר אחורי", "קשר קדמי", "אגף ימין", "אגף שמאל", "חלוץ"]
         existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
+        existing_primary = str(p_data.get('primary_role','') or '') if p_data else ''
         f_roles = st.pills(
-            "תפקידים *",
+            "תפקידים * (לבחירת תפקיד עיקרי — בחר תחילה ואז לחץ שנית)",
             ROLES,
             selection_mode="multi",
             default=[r for r in existing_roles if r in ROLES]
         )
+        # תפקיד עיקרי — בחירה מתוך התפקידים שנבחרו
+        if f_roles:
+            _primary_default = existing_primary if existing_primary in f_roles else f_roles[0]
+            f_primary_role = st.pills(
+                "⭐ תפקיד עיקרי:",
+                options=f_roles,
+                default=_primary_default,
+                selection_mode="single",
+                key=f"primary_{choice}",
+            )
+        else:
+            f_primary_role = ""
 
         # ציון עצמי
         existing_rating = str(int(p_data['rating'])) if p_data and str(p_data.get('rating','')).replace('.','').isdigit() and int(float(p_data.get('rating',0))) > 0 else None
@@ -1320,6 +1334,7 @@ with tab3:
                 st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
+                primary_str = f_primary_role if f_primary_role else (f_roles[0] if f_roles else "")
                 # peer_res — שמור רק ערכים שדורגו (> 0), מחק None ו-0
                 # peer_ratings = מה השחקן נתן לאחרים
                 my_ratings = {k: v for k, v in peer_res.items() if v is not None and v > 0}
@@ -1333,6 +1348,7 @@ with tab3:
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
+                    "primary_role": primary_str,
                     "peer_ratings": json.dumps(my_ratings, ensure_ascii=False),
                     "active": str(f_active),
                     "phone": f_phone.strip(),
