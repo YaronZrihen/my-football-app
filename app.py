@@ -77,6 +77,16 @@ div[data-testid="stPills"] button[aria-checked="true"] {
 .stApp { overflow-x: hidden !important; }
 [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
 
+/* ===== צמצום שורת שחקן בחלוקה ===== */
+[data-testid="stHorizontalBlock"] {
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+[data-testid="stHorizontalBlock"] > div {
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
 /* ===== p-box — תיבת שחקן בחלוקה ===== */
 .p-box {
     background: #1e293b; border: 1px solid #334155; border-radius: 6px;
@@ -863,7 +873,7 @@ with tab1:
                     pnum_s = f"#{pnum}" if pnum else ""
                     sc = "#22c55e" if p['score'] >= 7 else "#f59e0b" if p['score'] >= 5 else "#94a3b8"
                     other_tk = "t2" if tk == "t1" else "t1"
-                    ci, cb = st.columns([7, 1])
+                    ci, cb = st.columns([6, 1])
                     with ci:
                         st.markdown(
                             f"<div style='background:#1e293b;border-radius:6px;padding:9px 10px;"
