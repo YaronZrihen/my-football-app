@@ -913,6 +913,7 @@ with tab0:
 """, unsafe_allow_html=True)
 
 with tab1:
+    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
     if not all_names:
@@ -1067,6 +1068,7 @@ with tab1:
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
+    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     # בדיקת הרשאת מנהל
     if not st.session_state.get('admin_logged_in'):
         st.markdown("**🔒 גישה למנהל בלבד**")
@@ -1205,6 +1207,7 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
+    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     # ---- מצב לוגין ----
     # מנהל מחובר — גישה מלאה
     if st.session_state.get('admin_logged_in') and not st.session_state.get('tab3_logged_in'):
@@ -1540,6 +1543,7 @@ if _hist_action:
 # TAB 4: היסטוריית משחקים
 # ============================================================
 with tab4:
+    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     st.subheader("היסטוריית משחקים")
 
     col_r, col_pts = st.columns(2)
