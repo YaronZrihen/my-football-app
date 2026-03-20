@@ -30,7 +30,7 @@ h1, h2, h3, p, label, span, div {
     font-size: 26px;
     text-align: center !important;
     font-weight: bold;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     color: #60a5fa;
     letter-spacing: 1px;
     direction: rtl;
@@ -864,6 +864,12 @@ if _db_action:
     st.query_params.clear()
     st.rerun()
 
+st.markdown(
+    "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
+    "<div class='sub-title'>נכתב ע״י ירון זריהן"
+    " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
+    unsafe_allow_html=True
+)
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
@@ -871,12 +877,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנ�
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab1:
-    st.markdown(
-        "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-        "<div class='sub-title'>נכתב ע״י ירון זריהן"
-        " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-        unsafe_allow_html=True
-    )
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
     if not all_names:
@@ -1031,12 +1031,6 @@ with tab1:
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
-    st.markdown(
-        "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-        "<div class='sub-title'>נכתב ע״י ירון זריהן"
-        " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-        unsafe_allow_html=True
-    )
     # בדיקת הרשאת מנהל
     if not st.session_state.get('admin_logged_in'):
         st.markdown("**🔒 גישה למנהל בלבד**")
@@ -1175,12 +1169,6 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
-    st.markdown(
-        "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-        "<div class='sub-title'>נכתב ע״י ירון זריהן"
-        " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-        unsafe_allow_html=True
-    )
     # ---- מצב לוגין ----
     # מנהל מחובר — גישה מלאה
     if st.session_state.get('admin_logged_in') and not st.session_state.get('tab3_logged_in'):
@@ -1516,12 +1504,6 @@ if _hist_action:
 # TAB 4: היסטוריית משחקים
 # ============================================================
 with tab4:
-    st.markdown(
-        "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-        "<div class='sub-title'>נכתב ע״י ירון זריהן"
-        " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-        unsafe_allow_html=True
-    )
     st.subheader("היסטוריית משחקים")
 
     col_r, col_pts = st.columns(2)
