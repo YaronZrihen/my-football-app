@@ -876,12 +876,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנ�
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab1:
-    st.markdown(
-        "<div class='main-title'>⚽ ניהול כדורגל 2026</div>"
-        "<div class='sub-title'>נכתב ע״י ירון זריהן"
-        " &nbsp;|&nbsp; <span style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</span></div>",
-        unsafe_allow_html=True
-    )
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
     if not all_names:
