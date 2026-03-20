@@ -18,56 +18,16 @@ st.markdown("""
     direction: rtl;
     text-align: right;
 }
-header[data-testid="stHeader"] {
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-}
-/* אפס padding בכל תוכן טאב */
-div[data-testid="stTabsContent"] {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-}
-div[data-testid="stTabsContent"] > div:first-child {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-}
+
 h1, h2, h3, p, label, span, div {
     text-align: right !important;
     direction: rtl;
 }
-.block-container { 
-    padding-top: 0 !important; 
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    padding-bottom: 12px !important;
-    max-width: 700px; 
-    margin: auto; 
-}
+.block-container { padding: 12px !important; max-width: 700px; margin: auto; }
 
 
 /* ===== כותרת ===== */
-.main-title {
-    font-size: 20px;
-    text-align: center !important;
-    font-weight: bold;
-    margin: 4px 0 0 0;
-    color: #60a5fa;
-    letter-spacing: 1px;
-    direction: rtl;
-    line-height: 1.2;
-}
-.sub-title {
-    font-size: 11px;
-    text-align: center !important;
-    color: #4a5568;
-    margin: 0 0 6px 0;
-    direction: rtl;
-}
-@media (max-width: 480px) {
-    .main-title { font-size: 17px !important; margin: 2px 0 0 0 !important; }
-    .sub-title  { font-size: 10px !important; margin: 0 0 4px 0 !important; }
-}
+
 
 /* ===== כרטיס שחקן במאגר ===== */
 .card-name { font-size: 16px; font-weight: bold; color: #f1f5f9; direction: rtl; text-align: right; }
@@ -897,23 +857,17 @@ tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 ראשי", "🏃 חלוקה", "�
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab0:
-    st.markdown("""
-<div style='text-align:center;padding:30px 20px;direction:rtl;'>
-    <div style='font-size:48px;margin-bottom:10px;'>⚽</div>
-    <div style='font-size:26px;font-weight:bold;color:#60a5fa;margin-bottom:6px;'>ניהול כדורגל 2026</div>
-    <div style='font-size:13px;color:#94a3b8;margin-bottom:2px;'>נכתב ע״י ירון זריהן</div>
-    <div style='font-size:11px;color:#4a5568;margin-bottom:20px;'>v2.0 · מרץ 2026</div>
-    <div style='background:#1e293b;border-radius:10px;padding:16px;font-size:13px;color:#64748b;line-height:2;'>
-        🏃 חלוקה לקבוצות<br>
-        🗄️ מאגר שחקנים<br>
-        📝 עדכון פרטים<br>
-        📅 היסטוריית משחקים
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='text-align:center;padding:20px 0;direction:rtl;'>"
+        "<div style='font-size:40px;'>⚽</div>"
+        "<div style='font-size:22px;font-weight:bold;color:#60a5fa;margin:8px 0 4px;'>ניהול כדורגל 2026</div>"
+        "<div style='font-size:12px;color:#94a3b8;'>נכתב ע״י ירון זריהן</div>"
+        "<div style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</div>"
+        "</div>",
+        unsafe_allow_html=True
+    )
 
 with tab1:
-    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
     if not all_names:
@@ -1068,7 +1022,6 @@ with tab1:
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
-    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     # בדיקת הרשאת מנהל
     if not st.session_state.get('admin_logged_in'):
         st.markdown("**🔒 גישה למנהל בלבד**")
@@ -1207,7 +1160,6 @@ with tab2:
 # TAB 3: עדכון / הרשמה
 # ============================================================
 with tab3:
-    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     # ---- מצב לוגין ----
     # מנהל מחובר — גישה מלאה
     if st.session_state.get('admin_logged_in') and not st.session_state.get('tab3_logged_in'):
@@ -1543,7 +1495,6 @@ if _hist_action:
 # TAB 4: היסטוריית משחקים
 # ============================================================
 with tab4:
-    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
     st.subheader("היסטוריית משחקים")
 
     col_r, col_pts = st.columns(2)
