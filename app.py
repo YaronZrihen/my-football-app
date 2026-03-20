@@ -23,8 +23,14 @@ header[data-testid="stHeader"] {
     min-height: 0 !important;
     padding: 0 !important;
 }
-#root > div:first-child {
+/* אפס padding בכל תוכן טאב */
+div[data-testid="stTabsContent"] {
     padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+div[data-testid="stTabsContent"] > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 h1, h2, h3, p, label, span, div {
     text-align: right !important;
@@ -884,12 +890,28 @@ if _db_action:
     st.query_params.clear()
     st.rerun()
 
-tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
+tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 ראשי", "🏃 חלוקה", "🗄️ מאגר", "📝 עדכון", "📅 היסטוריה"])
 
 
 # ============================================================
 # TAB 1: חלוקת קבוצות
 # ============================================================
+with tab0:
+    st.markdown("""
+<div style='text-align:center;padding:30px 20px;direction:rtl;'>
+    <div style='font-size:48px;margin-bottom:10px;'>⚽</div>
+    <div style='font-size:26px;font-weight:bold;color:#60a5fa;margin-bottom:6px;'>ניהול כדורגל 2026</div>
+    <div style='font-size:13px;color:#94a3b8;margin-bottom:2px;'>נכתב ע״י ירון זריהן</div>
+    <div style='font-size:11px;color:#4a5568;margin-bottom:20px;'>v2.0 · מרץ 2026</div>
+    <div style='background:#1e293b;border-radius:10px;padding:16px;font-size:13px;color:#64748b;line-height:2;'>
+        🏃 חלוקה לקבוצות<br>
+        🗄️ מאגר שחקנים<br>
+        📝 עדכון פרטים<br>
+        📅 היסטוריית משחקים
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
 
