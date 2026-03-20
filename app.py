@@ -1249,14 +1249,14 @@ with tab3:
             selection_mode="multi",
             default=[r for r in existing_roles if r in ROLES]
         )
-        # תפקיד עיקרי — בחירה מתוך התפקידים שנבחרו
+        # תפקיד עיקרי — selectbox מתוך התפקידים שנבחרו
         if f_roles:
             _primary_default = existing_primary if existing_primary in f_roles else f_roles[0]
-            f_primary_role = st.pills(
+            _primary_idx = f_roles.index(_primary_default) if _primary_default in f_roles else 0
+            f_primary_role = st.selectbox(
                 "⭐ תפקיד עיקרי:",
                 options=f_roles,
-                default=_primary_default,
-                selection_mode="single",
+                index=_primary_idx,
                 key=f"primary_{choice}",
             )
         else:
