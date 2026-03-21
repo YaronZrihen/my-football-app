@@ -850,22 +850,12 @@ if _db_action:
     st.query_params.clear()
     st.rerun()
 
-tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 ראשי", "🏃 חלוקה", "🗄️ מאגר", "📝 עדכון", "📅 היסטוריה"])
+tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
 
 # ============================================================
 # TAB 1: חלוקת קבוצות
 # ============================================================
-with tab0:
-    st.markdown(
-        "<div style='text-align:center;padding:20px 0;direction:rtl;'>"
-        "<div style='font-size:40px;'>⚽</div>"
-        "<div style='font-size:22px;font-weight:bold;color:#60a5fa;margin:8px 0 4px;'>ניהול כדורגל 2026</div>"
-        "<div style='font-size:12px;color:#94a3b8;'>נכתב ע״י ירון זריהן</div>"
-        "<div style='font-size:11px;color:#4a5568;'>v2.0 · מרץ 2026</div>"
-        "</div>",
-        unsafe_allow_html=True
-    )
 
 with tab1:
     all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
