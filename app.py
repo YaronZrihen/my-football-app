@@ -1027,7 +1027,6 @@ with tab1:
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
-    # בדיקת הרשאת מנהל
     if not st.session_state.get('admin_logged_in'):
         st.markdown("**🔒 גישה למנהל בלבד**")
         admin_input = st.text_input("קוד מנהל:", type="password",
@@ -1049,121 +1048,6 @@ with tab2:
 
     st.subheader(f"מאגר שחקנים ({len(st.session_state.players)})")
 
-    if not st.session_state.players:
-        st.info("המאגר ריק. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
-    else:
-        # חיפוש
-        search = st.text_input("🔍 חפש שחקן:", placeholder="הקלד שם...")
-        show_inactive = st.toggle("הצג שחקנים לא פעילים", value=False)
-        filtered = [
-            p for p in st.session_state.players
-            if (not search or search.lower() in p['name'].lower())
-            and (show_inactive or is_player_active(p))
-        ]
-
-        # מיון לפי שם פרטי (אות ראשונה)
-        filtered_with_scores = sorted(
-            filtered,
-            key=lambda p: p['name'].strip().split()[0] if p.get('name') else ''
-        )
-
-        for i, p in enumerate(filtered_with_scores):
-            age = get_player_age(p)
-            roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
-            primary_role = str(p.get('primary_role','') or '')
-            is_active = is_player_active(p)
-
-            # ציונים
-            self_rating = get_self_rating(p)
-            peer_avg    = get_peer_avg(p, st.session_state.players)
-            weighted    = get_player_score(p, st.session_state.players)
-
-            def score_color(s): return "#22c55e" if s >= 7 else "#f59e0b" if s >= 5 else "#ef4444"
-            def score_badge(label, val):
-                if val is None: return f"<span style='color:#4a5568;font-size:12px;'>{label}: —</span>"
-                c = score_color(val)
-                return f"<span style='font-size:12px;'>{label}: <b style='color:{c};'>{val:.1f}</b></span>"
-
-            active_badge = "<span style='background:#22c55e;color:white;border-radius:4px;padding:1px 7px;font-size:11px;'>פעיל</span>" if is_active else "<span style='background:#ef4444;color:white;border-radius:4px;padding:1px 7px;font-size:11px;'>לא פעיל</span>"
-            pnum = p.get('player_num', '')
-            pnum_str = f"<span style='color:#60a5fa;font-size:12px;margin-left:6px;'>#{pnum}</span>" if pnum else ""
-
-            wins = safe_int(p.get("win_points"))
-            games_played = sum(
-                1 for g in st.session_state.get('game_history', [])
-                if p['name'] in g.get('team1', []) + g.get('team2', [])
-            )
-            if wins > 0 or games_played > 0:
-                wins_str = f"<span style='color:#f59e0b;font-size:12px;margin-right:8px;'>🏆 {wins}/{games_played}</span>"
-            else:
-                wins_str = ""
-            st.markdown(
-                f"<div class='database-card'>"
-                f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
-                f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge} {wins_str}</div>"
-                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}" + (f" | <b style='color:#f59e0b;'>⭐ {primary_role}</b>" if primary_role else "") + "</div>"
-                f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
-                f"{score_badge('אישי', self_rating)}"
-                f"<span style='color:#4a5568;font-size:12px;'>|</span>"
-                f"{score_badge('קבוצתי', peer_avg)}"
-                f"<span style='color:#4a5568;font-size:12px;'>|</span>"
-                f"<span style='font-size:12px;'>משוכלל: <b style='color:{score_color(weighted)};font-size:13px;'>{weighted:.1f}</b></span>"
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-            import urllib.parse as _up
-            import math as _m
-            def _sp(v):
-                """המר float ל-int string, טפל ב-NaN."""
-                s = str(v or '').strip()
-                if s.lower() in ('nan','none',''):
-                    return ''
-                try:
-                    f = float(s)
-                    return '' if _m.isnan(f) else str(int(f))
-                except:
-                    return s
-            player_pin   = _sp(p.get('pin',''))
-            player_phone = _sp(p.get('phone',''))
-            app_url      = "https://my-football-app-maupcjcb9vmwxrthq7nduu.streamlit.app"
-            toggle_label = "🔴" if is_active else "🟢"
-
-            # כפתורי פעולה — HTML flex, שורה אחת, לא גולשת
-            _pn_enc = _up.quote(p['name'])
-            _wa_btn = ""
-            if player_pin and player_phone:
-                link   = f"{app_url}/?player={_pn_enc}&pin={player_pin}"
-                wa_msg = f"שלום {p['name'].split()[0]}! קישור: {link} | קוד: {player_pin}"
-                wa_url = f"https://wa.me/972{player_phone.lstrip('0').replace('-','')}?text={_up.quote(wa_msg)}"
-                _wa_btn = (f"<a href='{wa_url}' target='_blank' style='background:#25d366;color:white;"
-                           f"border-radius:6px;padding:6px 10px;text-decoration:none;font-size:14px;"
-                           f"white-space:nowrap;text-align:center;'>💬</a>")
-
-            # כפתור ערוך — st.button (חייב לעבוד)
-            # toggle + delete + WA — HTML flex
-            st.markdown(
-                f"<div style='display:flex;gap:5px;margin:4px 0 2px;width:100%;box-sizing:border-box;'>"
-                f"<a href='?db_action=toggle|{_pn_enc}' target='_top' style='background:#334155;color:white;border-radius:6px;"
-                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
-                f"{_wa_btn}"
-                f"<a href='?db_action=delete|{_pn_enc}' target='_top' style='background:#7f1d1d;color:white;border-radius:6px;"
-                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-            if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
-                st.session_state.edit_name = p['name']
-                st.session_state.nav_to_edit = True
-                st.rerun()
-
-            st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
-
-
-# ============================================================
-# TAB 3: עדכון / הרשמה
-# ============================================================
 with tab3:
     # ---- מצב לוגין ----
     # מנהל מחובר — גישה מלאה
