@@ -852,6 +852,21 @@ if _db_action:
 
 tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנים", "📝 עדכון/הרשמה", "📅 היסטוריה"])
 
+st.markdown("""
+<script>
+(function() {
+    var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            setTimeout(function() {
+                window.parent.scrollTo({top: 0, behavior: 'instant'});
+            }, 50);
+        });
+    });
+})();
+</script>
+""", unsafe_allow_html=True)
+
 
 # ============================================================
 # TAB 1: חלוקת קבוצות
