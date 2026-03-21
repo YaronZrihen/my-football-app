@@ -240,38 +240,92 @@ def balance_score(team: list) -> float:
 # 3. אלגוריתם חלוקה חכם (Snake Draft + אופטימיזציה)
 # ============================================================
 
-def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
-    """
-    חלוקה מאוזנת בשיטת Snake Draft + 100 סיבובי אופטימיזציה.
+# קבוצות תפקידים לתבנית
+ROLE_GROUPS = {
+    "שוער":      "שוערים",
+    "בלם":       "מגנים",
+    "מגן ימין":  "מגנים",
+    "מגן שמאל":  "מגנים",
+    "קשר אחורי": "קשרים",
+    "קשר קדמי":  "קשרים",
+    "אגף ימין":  "קשרים",
+    "אגף שמאל":  "קשרים",
+    "חלוץ":      "חלוצים",
+}
 
-    Snake Draft: 1→t1, 2→t2, 3→t2, 4→t1, 5→t1, 6→t2 ...
-    לאחר מכן מנסים להחליף שחקנים בין הקבוצות ולשפר איזון.
+def get_player_role(player_data: dict) -> str:
+    """מחזיר תפקיד עיקרי, ואם אין — תפקיד ראשון מהרשימה."""
+    primary = str(player_data.get('primary_role','') or '').strip()
+    if primary and primary not in ('nan','none',''):
+        return primary
+    roles = safe_split(player_data.get('roles',''))
+    return roles[0] if roles else ''
+
+
+def divide_teams(selected_names: list, players_data: list,
+                 formation: dict | None = None) -> tuple[list, list, list]:
     """
-    # בניית pool עם ציונים
+    חלוקה מאוזנת עם תמיכה בתבנית משחק.
+    formation = {"שוערים": 1, "מגנים": 3, "קשרים": 3, "חלוצים": 2}
+    מחזיר: t1, t2, missing_roles (תפקידים חסרים)
+    """
     pool = []
     for name in selected_names:
         p = next((x for x in players_data if x['name'] == name), None)
         if p:
+            role = get_player_role(p)
+            group = ROLE_GROUPS.get(role, 'אחר')
             pool.append({
                 'name': name,
-                'score': get_player_score(p),
-                'age': get_player_age(p)
+                'score': get_player_score(p, players_data),
+                'age': get_player_age(p),
+                'role': role,
+                'group': group,
             })
 
-    # מיון לפי ציון יורד
-    pool.sort(key=lambda x: x['score'], reverse=True)
+    if not formation:
+        # ללא תבנית — Snake Draft רגיל
+        pool.sort(key=lambda x: x['score'], reverse=True)
+        t1, t2 = [], []
+        for i, player in enumerate(pool):
+            block = i // 2
+            pos_in_block = i % 2
+            if block % 2 == 0:
+                (t1 if pos_in_block == 0 else t2).append(player)
+            else:
+                (t2 if pos_in_block == 0 else t1).append(player)
+    else:
+        # חלוקה לפי תבנית — מפזר כל קבוצת תפקידים בנפרד
+        t1, t2 = [], []
+        used = set()
+        for group, needed in formation.items():
+            group_players = sorted(
+                [p for p in pool if p['group'] == group],
+                key=lambda x: x['score'], reverse=True
+            )
+            # חלק N שחקנים מקבוצה זו (N = needed * 2 לשתי קבוצות)
+            to_assign = group_players[:needed * 2]
+            for i, player in enumerate(to_assign):
+                (t1 if i % 2 == 0 else t2).append(player)
+                used.add(player['name'])
+        # שחקנים ללא תפקיד מוגדר — חלק לפי ציון
+        remaining = sorted([p for p in pool if p['name'] not in used],
+                           key=lambda x: x['score'], reverse=True)
+        for i, player in enumerate(remaining):
+            (t1 if i % 2 == 0 else t2).append(player)
 
-    t1, t2 = [], []
-    for i, player in enumerate(pool):
-        # Snake Draft pattern: 0→t1, 1→t2, 2→t2, 3→t1, 4→t1, 5→t2...
-        block = i // 2
-        pos_in_block = i % 2
-        if block % 2 == 0:
-            (t1 if pos_in_block == 0 else t2).append(player)
-        else:
-            (t2 if pos_in_block == 0 else t1).append(player)
+    # בדיקת תפקידים חסרים
+    missing = []
+    if formation:
+        for group, needed in formation.items():
+            t1_count = sum(1 for p in t1 if p['group'] == group)
+            t2_count = sum(1 for p in t2 if p['group'] == group)
+            if t1_count < needed:
+                missing.append(f"לבן חסר {needed-t1_count} {group}")
+            if t2_count < needed:
+                missing.append(f"שחור חסר {needed-t2_count} {group}")
 
-    # אופטימיזציה: ניסיון החלפות לשיפור איזון
+    # אופטימיזציה: החלפות לשיפור איזון
     improved = True
     iterations = 0
     while improved and iterations < 200:
@@ -280,15 +334,14 @@ def divide_teams(selected_names: list, players_data: list) -> tuple[list, list]:
         for i in range(len(t1)):
             for j in range(len(t2)):
                 diff_before = abs(balance_score(t1) - balance_score(t2))
-                # ניסיון החלפה
                 t1[i], t2[j] = t2[j], t1[i]
                 diff_after = abs(balance_score(t1) - balance_score(t2))
                 if diff_after < diff_before:
-                    improved = True  # שיפור! נשמור את ההחלפה
+                    improved = True
                 else:
-                    t1[i], t2[j] = t2[j], t1[i]  # ביטול החלפה
+                    t1[i], t2[j] = t2[j], t1[i]
 
-    return t1, t2
+    return t1, t2, missing
 
 
 
@@ -594,7 +647,7 @@ def save_to_gsheets(players: list) -> bool:
         conn = get_connection()
         df = pd.DataFrame(players)
         # וודא שכל העמודות הנדרשות קיימות
-        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'peer_ratings', 'active', 'win_points', 'phone', 'pin']
+        required_cols = ['name', 'player_num', 'birth_year', 'rating', 'roles', 'primary_role', 'peer_ratings', 'active', 'win_points', 'phone', 'pin']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = ''
@@ -822,15 +875,32 @@ with tab1:
         st.markdown(f"<p style='color:{color}; font-weight:bold;'>נבחרו: {count} שחקנים</p>",
                     unsafe_allow_html=True)
 
+        # תבנית משחק
+        with st.expander("⚽ תבנית משחק (אופציונלי)"):
+            use_formation = st.toggle("הפעל תבנית", value=st.session_state.get('use_formation', False), key="use_formation")
+            if use_formation:
+                st.markdown("<small>הגדר כמה שחקנים מכל קבוצה בכל קבוצה</small>", unsafe_allow_html=True)
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                with fc1: n_gk  = st.number_input("שוערים", 0, 3, st.session_state.get('f_gk',1),  key="f_gk")
+                with fc2: n_def = st.number_input("מגנים",  0, 6, st.session_state.get('f_def',3), key="f_def")
+                with fc3: n_mid = st.number_input("קשרים",  0, 6, st.session_state.get('f_mid',3), key="f_mid")
+                with fc4: n_fwd = st.number_input("חלוצים", 0, 4, st.session_state.get('f_fwd',2), key="f_fwd")
+                total = n_gk + n_def + n_mid + n_fwd
+                st.caption(f"סה״כ: {total} שחקנים לכל קבוצה (={total*2} בסך הכל)")
+                formation = {"שוערים": n_gk, "מגנים": n_def, "קשרים": n_mid, "חלוצים": n_fwd}
+            else:
+                formation = None
+
         divide_clicked = st.button("חלק קבוצות 🚀", use_container_width=True, disabled=count < 2)
         reshuffle_clicked = st.button("ערבב מחדש 🔀", use_container_width=True, disabled=count < 2)
 
         if divide_clicked or reshuffle_clicked:
             if selected_names:
-                t1, t2 = divide_teams(selected_names, st.session_state.players)
+                t1, t2, missing = divide_teams(selected_names, st.session_state.players, formation)
                 st.session_state.t1 = t1
                 st.session_state.t2 = t2
                 st.session_state.teams_generated = True
+                st.session_state.missing_roles = missing
 
         # הצגת קבוצות
         if st.session_state.teams_generated and selected_names and \
@@ -843,6 +913,10 @@ with tab1:
                 f"פער בין קבוצות: {diff:.2f}</p>",
                 unsafe_allow_html=True
             )
+            # הצג תפקידים חסרים
+            missing = st.session_state.get('missing_roles', [])
+            if missing:
+                st.warning("⚠️ תפקידים חסרים: " + " | ".join(missing))
 
             # תצוגת קבוצות קומפקטית עם כפתורי החלפה
             t1 = st.session_state.t1
@@ -864,7 +938,7 @@ with tab1:
                     f"padding:10px 14px;text-align:center;font-weight:bold;font-size:17px;"
                     f"direction:rtl;margin-top:8px;'>"
                     f"{title} ({len(team)})"
-                    f"<span style='font-size:13px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
+                    f"<span style='font-size:15px;font-weight:normal;'> | רמה {avg:.1f} | גיל {age_avg:.1f}</span>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -981,6 +1055,7 @@ with tab2:
         for i, p in enumerate(filtered_with_scores):
             age = get_player_age(p)
             roles = p.get('roles', 'לא הוגדר') or 'לא הוגדר'
+            primary_role = str(p.get('primary_role','') or '')
             is_active = is_player_active(p)
 
             # ציונים
@@ -1011,7 +1086,7 @@ with tab2:
                 f"<div class='database-card'>"
                 f"<div class='card-name' style='margin-bottom:6px;'>{pnum_str}{p['name']} "
                 f"<span style='color:#94a3b8;font-size:13px;'>({age})</span> {active_badge} {wins_str}</div>"
-                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}</div>"
+                f"<div style='color:#94a3b8;font-size:12px;margin-bottom:4px;'>תפקידים: {roles}" + (f" | <b style='color:#f59e0b;'>⭐ {primary_role}</b>" if primary_role else "") + "</div>"
                 f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;'>"
                 f"{score_badge('אישי', self_rating)}"
                 f"<span style='color:#4a5568;font-size:12px;'>|</span>"
@@ -1051,18 +1126,22 @@ with tab2:
                            f"border-radius:6px;padding:6px 10px;text-decoration:none;font-size:14px;"
                            f"white-space:nowrap;text-align:center;'>💬</a>")
 
+            # כפתור ערוך — st.button (חייב לעבוד)
+            # toggle + delete + WA — HTML flex
             st.markdown(
-                f"<div style='display:flex;gap:5px;margin:4px 0;width:100%;box-sizing:border-box;'>"
-                f"<a href='?db_action=edit|{_pn_enc}' style='background:#1e3a5f;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:13px;flex:3;text-align:center;'>📝 ערוך</a>"
-                f"<a href='?db_action=toggle|{_pn_enc}' style='background:#334155;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
+                f"<div style='display:flex;gap:5px;margin:4px 0 2px;width:100%;box-sizing:border-box;'>"
+                f"<a href='?db_action=toggle|{_pn_enc}' target='_top' style='background:#334155;color:white;border-radius:6px;"
+                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>{toggle_label}</a>"
                 f"{_wa_btn}"
-                f"<a href='?db_action=delete|{_pn_enc}' style='background:#7f1d1d;color:white;border-radius:6px;"
-                f"padding:6px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
+                f"<a href='?db_action=delete|{_pn_enc}' target='_top' style='background:#7f1d1d;color:white;border-radius:6px;"
+                f"padding:8px 0;text-decoration:none;font-size:15px;flex:1;text-align:center;'>🗑️</a>"
                 f"</div>",
                 unsafe_allow_html=True
             )
+            if st.button("📝 ערוך", key=f"db_ed_{p['name']}", use_container_width=True):
+                st.session_state.edit_name = p['name']
+                st.session_state.nav_to_edit = True
+                st.rerun()
 
             st.markdown("<hr style='border-color:#1e293b; margin:4px 0;'>", unsafe_allow_html=True)
 
@@ -1157,6 +1236,31 @@ with tab3:
     else:
         auto_num = len(st.session_state.players) + 1
 
+    # תפקידים + תפקיד עיקרי — מחוץ לטופס כדי לאפשר עדכון דינמי
+    ROLES_OUT = ["שוער", "בלם", "מגן ימין", "מגן שמאל", "קשר אחורי", "קשר קדמי", "אגף ימין", "אגף שמאל", "חלוץ"]
+    existing_roles_out = safe_split(p_data.get('roles', '')) if p_data else []
+    existing_primary_out = str(p_data.get('primary_role','') or '') if p_data else ''
+
+    st.markdown("**תפקידים *** (בחר תפקידים, לאחר מכן בחר תפקיד עיקרי)")
+    selected_roles = st.pills(
+        "תפקידים",
+        ROLES_OUT,
+        selection_mode="multi",
+        default=[r for r in existing_roles_out if r in ROLES_OUT],
+        key=f"roles_out_{choice}",
+        label_visibility="collapsed",
+    )
+    if selected_roles:
+        _pr_default = existing_primary_out if existing_primary_out in selected_roles else selected_roles[0]
+        selected_primary = st.selectbox(
+            "⭐ תפקיד עיקרי:",
+            options=selected_roles,
+            index=selected_roles.index(_pr_default) if _pr_default in selected_roles else 0,
+            key=f"primary_out_{choice}",
+        )
+    else:
+        selected_primary = ""
+
     with st.form("edit_form", clear_on_submit=False):
         # מספר שחקן — מעל השם
         st.markdown(
@@ -1234,15 +1338,9 @@ with tab3:
             value=int(p_data['birth_year']) if p_data else 1990
         )
 
-        # תפקידים
-        ROLES = ["שוער", "בלם", "מגן ימין", "מגן שמאל", "קשר אחורי", "קשר קדמי", "אגף ימין", "אגף שמאל", "חלוץ"]
-        existing_roles = safe_split(p_data.get('roles', '')) if p_data else []
-        f_roles = st.pills(
-            "תפקידים *",
-            ROLES,
-            selection_mode="multi",
-            default=[r for r in existing_roles if r in ROLES]
-        )
+        # תפקידים נלקחים מבחירה מחוץ לטופס
+        f_roles = selected_roles
+        f_primary_role = selected_primary
 
         # ציון עצמי
         existing_rating = str(int(p_data['rating'])) if p_data and str(p_data.get('rating','')).replace('.','').isdigit() and int(float(p_data.get('rating',0))) > 0 else None
@@ -1316,6 +1414,7 @@ with tab3:
                 st.error(f"❌ שדות חובה חסרים: {', '.join(errors)}")
             else:
                 roles_str = ",".join(f_roles) if f_roles else ""
+                primary_str = f_primary_role if f_primary_role else (f_roles[0] if f_roles else "")
                 # peer_res — שמור רק ערכים שדורגו (> 0), מחק None ו-0
                 # peer_ratings = מה השחקן נתן לאחרים
                 my_ratings = {k: v for k, v in peer_res.items() if v is not None and v > 0}
@@ -1329,6 +1428,7 @@ with tab3:
                     "birth_year": f_year,
                     "rating": f_rate,
                     "roles": roles_str,
+                    "primary_role": primary_str,
                     "peer_ratings": json.dumps(my_ratings, ensure_ascii=False),
                     "active": str(f_active),
                     "phone": f_phone.strip(),
