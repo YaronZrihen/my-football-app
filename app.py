@@ -798,22 +798,6 @@ with tab3:
 
     auto_num = int(p_data['player_num']) if p_data and str(p_data.get('player_num','')).isdigit() else len(st.session_state.players)+1
 
-    ROLES_OUT = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
-    existing_roles_out = safe_split(p_data.get('roles','')) if p_data else []
-    existing_primary_out = str(p_data.get('primary_role','') or '') if p_data else ''
-    if existing_primary_out.lower() in ('nan','none'): existing_primary_out = ''
-
-    st.markdown("**תפקידים *** (בחר תפקידים, לאחר מכן בחר תפקיד עיקרי)")
-    selected_roles = st.pills("תפקידים", ROLES_OUT, selection_mode="multi",
-                               default=[r for r in existing_roles_out if r in ROLES_OUT],
-                               key=f"roles_out_{choice}", label_visibility="collapsed")
-    if selected_roles:
-        _pr_default = existing_primary_out if existing_primary_out in selected_roles else selected_roles[0]
-        selected_primary = st.selectbox("⭐ תפקיד עיקרי:", options=selected_roles,
-                                         index=selected_roles.index(_pr_default) if _pr_default in selected_roles else 0,
-                                         key=f"primary_out_{choice}")
-    else: selected_primary = ""
-
     with st.form("edit_form", clear_on_submit=False):
         st.markdown(f"<div style='color:#94a3b8;font-size:14px;margin-bottom:2px;'>מספר שחקן: <b style='color:#60a5fa;'>#{auto_num}</b></div>", unsafe_allow_html=True)
 
@@ -839,6 +823,28 @@ with tab3:
         f_name = st.text_input("שם מלא *", value=p_data['name'] if p_data else "", placeholder="הכנס שם מלא")
         f_phone = st.text_input("מספר פלאפון *", value=clean_phone(p_data.get('phone','')) if p_data else '', placeholder="05X-XXXXXXX")
         f_year  = st.number_input("שנת לידה *", min_value=1950, max_value=2015, value=int(p_data['birth_year']) if p_data else 1990)
+
+        # תפקידים — בתוך הטופס, אחרי שנת לידה
+        ROLES_OUT = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
+        existing_roles_out = safe_split(p_data.get('roles','')) if p_data else []
+        existing_primary_out = str(p_data.get('primary_role','') or '') if p_data else ''
+        if existing_primary_out.lower() in ('nan','none'): existing_primary_out = ''
+
+        st.markdown(
+            "**תפקידים ***  \n"
+            "<small style='color:#94a3b8;font-weight:normal;'>בחר תפקידים, לאחר מכן בחר תפקיד עיקרי</small>",
+            unsafe_allow_html=True
+        )
+        selected_roles = st.pills("תפקידים", ROLES_OUT, selection_mode="multi",
+                                   default=[r for r in existing_roles_out if r in ROLES_OUT],
+                                   key=f"roles_out_{choice}", label_visibility="collapsed")
+        if selected_roles:
+            _pr_default = existing_primary_out if existing_primary_out in selected_roles else selected_roles[0]
+            selected_primary = st.selectbox("⭐ תפקיד עיקרי:", options=selected_roles,
+                                             index=selected_roles.index(_pr_default) if _pr_default in selected_roles else 0,
+                                             key=f"primary_out_{choice}")
+        else:
+            selected_primary = ""
 
         f_roles = selected_roles; f_primary_role = selected_primary
 
