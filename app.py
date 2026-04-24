@@ -193,86 +193,137 @@ def divide_teams(selected_names, players_data, formation=None):
 
 
 def build_field_html(t1, t2, players_data):
-    ROLE_POSITIONS = {
-        "שוער": {"x":50,"y":88}, "בלם": {"x":50,"y":74},
-        "מגן ימין": {"x":22,"y":66}, "מגן שמאל": {"x":78,"y":66},
-        "קשר אחורי": {"x":50,"y":56}, "אגף ימין": {"x":14,"y":50},
-        "אגף שמאל": {"x":86,"y":50}, "קשר קדמי": {"x":50,"y":40}, "חלוץ": {"x":50,"y":18},
+    # לבן (t1) — חצי תחתון המגרש | שחור (t2) — חצי עליון
+    ROLE_POS_BOTTOM = {
+        "שוער":      {"x":50,"y":92}, "בלם":       {"x":50,"y":80},
+        "מגן ימין":  {"x":25,"y":74}, "מגן שמאל":  {"x":75,"y":74},
+        "קשר אחורי": {"x":50,"y":67}, "אגף ימין":  {"x":15,"y":63},
+        "אגף שמאל":  {"x":85,"y":63}, "קשר קדמי":  {"x":50,"y":59},
+        "חלוץ":      {"x":50,"y":55},
+    }
+    ROLE_POS_TOP = {
+        "שוער":      {"x":50,"y":8},  "בלם":       {"x":50,"y":20},
+        "מגן ימין":  {"x":75,"y":26}, "מגן שמאל":  {"x":25,"y":26},
+        "קשר אחורי": {"x":50,"y":33}, "אגף ימין":  {"x":85,"y":37},
+        "אגף שמאל":  {"x":15,"y":37}, "קשר קדמי":  {"x":50,"y":41},
+        "חלוץ":      {"x":50,"y":45},
     }
     ROLE_PRIORITY = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","אגף ימין","אגף שמאל","קשר קדמי","חלוץ"]
 
-    def assign_positions(team, color):
+    def assign_positions(team, color, pos_map, fallback_ys):
         assigned = []; used = set()
         for p in team:
-            name = p['name']
-            pd_ = next((x for x in players_data if x['name'] == name), {})
-            roles = [r.strip() for r in str(pd_.get('roles','')).split(',') if r.strip()]
+            name = p["name"]
+            pd_ = next((x for x in players_data if x["name"] == name), {})
+            roles = [r.strip() for r in str(pd_.get("roles","")).split(",") if r.strip()]
             placed = False
             for role in roles:
-                if role in ROLE_POSITIONS and role not in used:
-                    pos = ROLE_POSITIONS[role]
-                    assigned.append({"name":name,"x":pos["x"],"y":pos["y"],"role":role,"color":color,"score":p.get('score',0)})
+                if role in pos_map and role not in used:
+                    pos = pos_map[role]
+                    assigned.append({"name":name,"x":pos["x"],"y":pos["y"],"role":role,"color":color,"score":p.get("score",0)})
                     used.add(role); placed = True; break
             if not placed:
-                assigned.append({"name":name,"x":None,"y":None,"role":"?","color":color,"score":p.get('score',0)})
+                assigned.append({"name":name,"x":None,"y":None,"role":"?","color":color,"score":p.get("score",0)})
         remaining = [r for r in ROLE_PRIORITY if r not in used]
-        unplaced = [p for p in assigned if p["x"] is None]
+        unplaced  = [p for p in assigned if p["x"] is None]
         for i, p in enumerate(unplaced):
-            if i < len(remaining):
-                pos = ROLE_POSITIONS[remaining[i]]; p["x"],p["y"],p["role"]=pos["x"],pos["y"],remaining[i]
-            else: p["x"]=10+(i*15)%80; p["y"]=95
+            if i < len(remaining) and remaining[i] in pos_map:
+                pos = pos_map[remaining[i]]; p["x"],p["y"],p["role"]=pos["x"],pos["y"],remaining[i]
+            else:
+                p["x"] = 10+(i*20)%80; p["y"] = fallback_ys[min(i, len(fallback_ys)-1)]
         return assigned
 
-    t1p = assign_positions(t1, "#4ade80"); t2p = assign_positions(t2, "#f87171")
-    aj = json.dumps({"t1":t1p,"t2":t2p}, ensure_ascii=False)
+    t1p = assign_positions(t1, "#4ade80", ROLE_POS_BOTTOM, [90,85,80,75,70,65,60,55,50])
+    t2p = assign_positions(t2, "#f87171", ROLE_POS_TOP,    [10,15,20,25,30,35,40,45,50])
+    aj  = json.dumps({"t1":t1p,"t2":t2p}, ensure_ascii=False)
 
-    return f"""<div style="font-family:sans-serif;direction:rtl;padding:8px;">
-  <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:center;">
-    <button onclick="show(1)" style="padding:5px 14px;border-radius:6px;border:2px solid #4ade80;background:#4ade80;color:#111;cursor:pointer;font-size:12px;font-weight:bold;">&#x26AA; לבן</button>
-    <button onclick="show(2)" style="padding:5px 14px;border-radius:6px;border:2px solid #f87171;background:#f87171;color:#111;cursor:pointer;font-size:12px;font-weight:bold;">&#x26AB; שחור</button>
-    <button onclick="show(0)" style="padding:5px 14px;border-radius:6px;border:2px solid #94a3b8;background:#334155;color:white;cursor:pointer;font-size:12px;">שתי קבוצות</button>
+    html = """<div style="font-family:sans-serif;direction:rtl;padding:8px;">
+  <div style="display:flex;gap:6px;margin-bottom:8px;justify-content:center;align-items:center;">
+    <span style="background:#4ade80;color:#111;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:bold;">&#x26AA; לבן — תחתון</span>
+    <span style="background:#f87171;color:#111;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:bold;">&#x26AB; שחור — עליון</span>
   </div>
-  <div style="position:relative;max-width:360px;margin:0 auto;">
-    <svg viewBox="0 0 360 480" style="width:100%;border-radius:8px;display:block;">
-      <rect width="360" height="480" fill="#2d6a2d"/>
-      <rect x="0" y="0" width="360" height="60" fill="#286228" opacity="0.45"/>
-      <rect x="0" y="120" width="360" height="60" fill="#286228" opacity="0.45"/>
-      <rect x="0" y="240" width="360" height="60" fill="#286228" opacity="0.45"/>
-      <rect x="0" y="360" width="360" height="60" fill="#286228" opacity="0.45"/>
-      <rect x="12" y="12" width="336" height="456" fill="none" stroke="white" stroke-width="2"/>
-      <line x1="12" y1="252" x2="348" y2="252" stroke="white" stroke-width="2"/>
-      <circle cx="180" cy="252" r="42" fill="none" stroke="white" stroke-width="2"/>
-      <circle cx="180" cy="252" r="3" fill="white"/>
-      <rect x="112" y="12" width="136" height="36" fill="none" stroke="white" stroke-width="2"/>
-      <rect x="138" y="12" width="84" height="18" fill="none" stroke="white" stroke-width="2"/>
-      <rect x="112" y="432" width="136" height="36" fill="none" stroke="white" stroke-width="2"/>
-      <rect x="138" y="450" width="84" height="18" fill="none" stroke="white" stroke-width="2"/>
-      <path d="M112,48 A54,54 0 0,1 248,48" fill="none" stroke="white" stroke-width="2"/>
-      <path d="M112,432 A54,54 0 0,0 248,432" fill="none" stroke="white" stroke-width="2"/>
+  <div id="fw" style="position:relative;max-width:380px;margin:0 auto;touch-action:none;">
+    <svg viewBox="0 0 380 520" style="width:100%;border-radius:8px;display:block;">
+      <rect width="380" height="520" fill="#2d6a2d"/>
+      <rect x="0" y="0"   width="380" height="65"  fill="#286228" opacity="0.4"/>
+      <rect x="0" y="130" width="380" height="65"  fill="#286228" opacity="0.4"/>
+      <rect x="0" y="260" width="380" height="65"  fill="#286228" opacity="0.4"/>
+      <rect x="0" y="390" width="380" height="65"  fill="#286228" opacity="0.4"/>
+      <rect x="14" y="14" width="352" height="492" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="14" y1="274" x2="366" y2="274" stroke="white" stroke-width="2"/>
+      <circle cx="190" cy="274" r="44" fill="none" stroke="white" stroke-width="2"/>
+      <circle cx="190" cy="274" r="4" fill="white"/>
+      <rect x="118" y="14"  width="144" height="40" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="145" y="14"  width="90"  height="20" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="118" y="466" width="144" height="40" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="145" y="486" width="90"  height="20" fill="none" stroke="white" stroke-width="2"/>
+      <path d="M118,54 A56,56 0 0,1 262,54"  fill="none" stroke="white" stroke-width="2"/>
+      <path d="M118,466 A56,56 0 0,0 262,466" fill="none" stroke="white" stroke-width="2"/>
     </svg>
-    <div id="players-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
+    <div id="pl" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
   </div>
+  <div id="tt" style="position:fixed;background:#1e293b;color:white;padding:5px 9px;border-radius:6px;font-size:11px;display:none;pointer-events:none;z-index:999;"></div>
 </div>
 <script>
-var DATA={aj};var active=0;
-function show(n){{active=n;render();}}
-function render(){{var layer=document.getElementById('players-layer');layer.innerHTML='';
-  var players=active===1?DATA.t1:active===2?DATA.t2:DATA.t1.concat(DATA.t2);
-  players.forEach(function(p){{var el=document.createElement('div');
-    el.style.cssText=['position:absolute','left:calc('+p.x+'% - 20px)','top:calc('+p.y+'% - 20px)',
-      'width:40px','height:40px','border-radius:50%','background:'+p.color,
-      'border:2px solid rgba(255,255,255,0.9)','display:flex','flex-direction:column',
-      'align-items:center','justify-content:center','cursor:grab','user-select:none',
-      'font-size:8px','color:#111','font-weight:bold','text-align:center','line-height:1.2',
-      'box-shadow:0 2px 6px rgba(0,0,0,0.5)','z-index:10'].join(';');
+var DATA=__AJ__;
+function render(){
+  var wrap=document.getElementById('fw');
+  var layer=document.getElementById('pl');
+  layer.innerHTML='';
+  DATA.t1.concat(DATA.t2).forEach(function(p){
+    var el=document.createElement('div');
+    el.style.cssText=[
+      'position:absolute',
+      'left:calc('+p.x+'% - 22px)',
+      'top:calc('+p.y+'% - 22px)',
+      'width:44px','height:44px','border-radius:50%',
+      'background:'+p.color,
+      'border:2px solid rgba(255,255,255,0.95)',
+      'display:flex','flex-direction:column',
+      'align-items:center','justify-content:center',
+      'cursor:grab','user-select:none','-webkit-user-select:none',
+      'font-size:8px','color:#111','font-weight:bold',
+      'text-align:center','line-height:1.2',
+      'box-shadow:0 2px 8px rgba(0,0,0,0.5)','z-index:10',
+      'touch-action:none'
+    ].join(';');
     var short=p.name.split(' ')[0];
     el.innerHTML='<span style="font-size:9px;">'+short+'</span><span style="font-size:7px;opacity:0.85;">'+p.role+'</span>';
-    el.addEventListener('mouseenter',function(){{var tt=document.getElementById('tt');if(tt){{tt.style.display='block';tt.innerHTML='<b>'+p.name+'</b><br>'+p.role+' | '+parseFloat(p.score).toFixed(1);}}}});
-    el.addEventListener('mouseleave',function(){{var tt=document.getElementById('tt');if(tt)tt.style.display='none';}});
-    layer.appendChild(el);}});}}
+    el.addEventListener('mouseenter',function(){var tt=document.getElementById('tt');tt.style.display='block';tt.innerHTML='<b>'+p.name+'</b><br>'+p.role+' | '+parseFloat(p.score).toFixed(1);});
+    el.addEventListener('mouseleave',function(){document.getElementById('tt').style.display='none';});
+    el.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      el.style.cursor='grabbing';el.style.zIndex=100;
+      function onMove(ev){
+        var r=wrap.getBoundingClientRect();
+        var nx=ev.clientX-r.left-22; var ny=ev.clientY-r.top-22;
+        el.style.left=Math.max(0,Math.min(r.width-44,nx))+'px';
+        el.style.top=Math.max(0,Math.min(r.height-44,ny))+'px';
+      }
+      function onUp(){el.style.cursor='grab';el.style.zIndex=10;document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    el.addEventListener('touchstart',function(e){
+      e.preventDefault();el.style.zIndex=100;
+      function onMove(ev){
+        ev.preventDefault();
+        var t=ev.touches[0];var r=wrap.getBoundingClientRect();
+        var nx=t.clientX-r.left-22;var ny=t.clientY-r.top-22;
+        el.style.left=Math.max(0,Math.min(r.width-44,nx))+'px';
+        el.style.top=Math.max(0,Math.min(r.height-44,ny))+'px';
+      }
+      function onEnd(){el.style.zIndex=10;document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);}
+      document.addEventListener('touchmove',onMove,{passive:false});
+      document.addEventListener('touchend',onEnd);
+    },{passive:false});
+    layer.appendChild(el);
+  });
+}
+document.addEventListener('mousemove',function(e){var tt=document.getElementById('tt');if(tt&&tt.style.display==='block'){tt.style.left=(e.clientX+14)+'px';tt.style.top=(e.clientY-10)+'px';}});
 render();
-</script>
-<div id="tt" style="position:fixed;background:#1e293b;color:white;padding:5px 9px;border-radius:6px;font-size:11px;display:none;pointer-events:none;z-index:200;"></div>""".replace("{aj}", aj)
+</script>"""
+    return html.replace("__AJ__", aj)
 
 
 # ============================================================
@@ -518,7 +569,21 @@ tab1, tab2, tab3, tab4 = st.tabs(["🏃 חלוקה", "🗄️ מאגר שחקנ�
 # TAB 1: חלוקת קבוצות
 # ============================================================
 with tab1:
-    all_names = sorted([p['name'] for p in st.session_state.players if is_player_active(p)])
+    # ---- כניסה בסיסמה ----
+    if not st.session_state.get('tab1_logged_in'):
+        st.markdown("**🔒 כניסה לחלוקה:**")
+        pw_col, btn_col = st.columns([3,1])
+        with pw_col:
+            pw_input = st.text_input("סיסמה:", type="password", label_visibility="collapsed", placeholder="הכנס סיסמה", key="tab1_pw")
+        with btn_col:
+            if st.button("כנס", use_container_width=True, key="tab1_login_btn"):
+                if pw_input == "1122":
+                    st.session_state.tab1_logged_in = True; st.rerun()
+                else:
+                    st.error("❌ סיסמה שגויה")
+        st.stop()
+
+    all_names = sorted([p["name"] for p in st.session_state.players if is_player_active(p)])
     if not all_names:
         st.info("אין שחקנים במאגר. הוסף שחקנים בטאב 'עדכון/הרשמה'.")
     else:
@@ -528,16 +593,16 @@ with tab1:
         st.markdown(f"<p style='color:{color};font-weight:bold;'>נבחרו: {count} שחקנים</p>", unsafe_allow_html=True)
 
         with st.expander("⚽ תבנית משחק (אופציונלי)"):
-            use_formation = st.toggle("הפעל תבנית", value=st.session_state.get('use_formation',False), key="use_formation")
+            use_formation = st.toggle("הפעל תבנית", value=st.session_state.get("use_formation",False), key="use_formation")
             if use_formation:
                 st.markdown("<small>הגדר כמה שחקנים מכל תפקיד בכל קבוצה</small>", unsafe_allow_html=True)
                 fc1,fc2,fc3,fc4 = st.columns(4)
-                with fc1: n_gk  = st.number_input("שוערים",0,3,st.session_state.get('f_gk',1),key="f_gk")
-                with fc2: n_def = st.number_input("מגנים",0,6,st.session_state.get('f_def',3),key="f_def")
-                with fc3: n_mid = st.number_input("קשרים",0,6,st.session_state.get('f_mid',3),key="f_mid")
-                with fc4: n_fwd = st.number_input("חלוצים",0,4,st.session_state.get('f_fwd',2),key="f_fwd")
+                with fc1: n_gk  = st.number_input("שוערים",0,3,st.session_state.get("f_gk",1),key="f_gk")
+                with fc2: n_def = st.number_input("מגנים",0,6,st.session_state.get("f_def",3),key="f_def")
+                with fc3: n_mid = st.number_input("קשרים",0,6,st.session_state.get("f_mid",3),key="f_mid")
+                with fc4: n_fwd = st.number_input("חלוצים",0,4,st.session_state.get("f_fwd",2),key="f_fwd")
                 total = n_gk+n_def+n_mid+n_fwd
-                st.caption(f"סה״כ: {total} שחקנים לכל קבוצה (={total*2} בסך הכל)")
+                st.caption(f"סה\"כ: {total} שחקנים לכל קבוצה (={total*2} בסך הכל)")
                 formation = {"שוערים":n_gk,"מגנים":n_def,"קשרים":n_mid,"חלוצים":n_fwd}
             else: formation = None
 
@@ -546,26 +611,48 @@ with tab1:
 
         if divide_clicked or reshuffle_clicked:
             if selected_names:
-                t1,t2,missing = divide_teams(selected_names, st.session_state.players, formation)
+                # ערבב מחדש — shuffle pool לפני חלוקה
+                import random as _rand
+                if reshuffle_clicked:
+                    _pool_names = list(selected_names)
+                    _rand.shuffle(_pool_names)
+                    t1,t2,missing = divide_teams(_pool_names, st.session_state.players, formation)
+                else:
+                    t1,t2,missing = divide_teams(selected_names, st.session_state.players, formation)
                 st.session_state.t1=t1; st.session_state.t2=t2
                 st.session_state.teams_generated=True; st.session_state.missing_roles=missing
 
-        if st.session_state.teams_generated and selected_names and 't1' in st.session_state and 't2' in st.session_state:
-            diff = abs(balance_score(st.session_state.t1)-balance_score(st.session_state.t2))
-            bc = "#22c55e" if diff<0.5 else "#f59e0b" if diff<1.0 else "#ef4444"
+        if st.session_state.teams_generated and selected_names and "t1" in st.session_state and "t2" in st.session_state:
+            t1=st.session_state.t1; t2=st.session_state.t2
+            all_combined = t1+t2
+
+            diff    = abs(balance_score(t1)-balance_score(t2))
+            bc      = "#22c55e" if diff<0.5 else "#f59e0b" if diff<1.0 else "#ef4444"
+
+            # שורת פער
             st.markdown(
                 f"<p style='text-align:center;color:{bc};font-size:13px;'>"
-                f"פער בין קבוצות: {diff:.2f} | לבן: {len(st.session_state.t1)} שחקנים | שחור: {len(st.session_state.t2)} שחקנים</p>",
+                f"פער בין קבוצות: {diff:.2f} | לבן: {len(t1)} שחקנים | שחור: {len(t2)} שחקנים</p>",
                 unsafe_allow_html=True
             )
-            missing = st.session_state.get('missing_roles',[])
+
+            # שורת סטטיסטיקה — ממוצע ציון וגיל לשתי הקבוצות יחד
+            if all_combined:
+                combined_avg_score = round(sum(p["score"] for p in all_combined)/len(all_combined), 1)
+                combined_avg_age   = round(sum(p["age"]   for p in all_combined)/len(all_combined), 1)
+                st.markdown(
+                    f"<p style='text-align:center;color:#94a3b8;font-size:12px;margin-top:-6px;'>"
+                    f"ממוצע כללי — ציון: <b style='color:#60a5fa;'>{combined_avg_score}</b> | "
+                    f"גיל: <b style='color:#60a5fa;'>{combined_avg_age}</b></p>",
+                    unsafe_allow_html=True
+                )
+
+            missing = st.session_state.get("missing_roles",[])
             if missing: st.warning("⚠️ תפקידים חסרים: "+" | ".join(missing))
 
-            t1=st.session_state.t1; t2=st.session_state.t2
-
             def render_team(team, tk, header_bg, title):
-                avg = balance_score(team)
-                age_avg = sum(p['age'] for p in team)/len(team) if team else 0
+                avg     = balance_score(team)
+                age_avg = sum(p["age"] for p in team)/len(team) if team else 0
                 st.markdown(
                     f"<div style='background:{header_bg};border-radius:8px 8px 0 0;padding:10px 14px;"
                     f"text-align:center;font-weight:bold;font-size:17px;direction:rtl;margin-top:8px;'>"
@@ -573,9 +660,9 @@ with tab1:
                     unsafe_allow_html=True
                 )
                 for i, p in enumerate(team):
-                    pnum = next((x.get('player_num','') for x in st.session_state.players if x['name']==p['name']),'')
+                    pnum  = next((x.get("player_num","") for x in st.session_state.players if x["name"]==p["name"]),"")
                     pnum_s = f"#{pnum}" if pnum else ""
-                    sc = "#22c55e" if p['score']>=7 else "#f59e0b" if p['score']>=5 else "#94a3b8"
+                    sc    = "#22c55e" if p["score"]>=7 else "#f59e0b" if p["score"]>=5 else "#94a3b8"
                     other_tk = "t2" if tk=="t1" else "t1"
                     ci,cb = st.columns([6,1])
                     with ci:
@@ -596,21 +683,21 @@ with tab1:
             render_team(t2,"t2","#3a1e1e","⚫ שחור")
 
             if st.button("🏟️ הצג מגרש", use_container_width=True):
-                st.session_state.show_field = not st.session_state.get('show_field',False)
-            if st.session_state.get('show_field',False):
-                components.html(build_field_html(st.session_state.t1, st.session_state.t2, st.session_state.players), height=660, scrolling=False)
+                st.session_state.show_field = not st.session_state.get("show_field",False)
+            if st.session_state.get("show_field",False):
+                components.html(build_field_html(st.session_state.t1, st.session_state.t2, st.session_state.players), height=680, scrolling=False)
 
             st.markdown("---")
             game_date = st.date_input("תאריך המשחק:", value=None, key="game_date")
             if st.button("💾 שמור חלוקה להיסטוריה", use_container_width=True, disabled=not game_date):
-                history = st.session_state.get('game_history',[])
+                history  = st.session_state.get("game_history",[])
                 existing = next((i for i,g in enumerate(history) if g["date"]==str(game_date)), None)
                 new_game = {
-                    "date": str(game_date),
-                    "team1": [p['name'] for p in st.session_state.t1],
-                    "team2": [p['name'] for p in st.session_state.t2],
-                    "avg1": round(balance_score(st.session_state.t1),2),
-                    "avg2": round(balance_score(st.session_state.t2),2),
+                    "date":   str(game_date),
+                    "team1":  [p["name"] for p in st.session_state.t1],
+                    "team2":  [p["name"] for p in st.session_state.t2],
+                    "avg1":   round(balance_score(st.session_state.t1),2),
+                    "avg2":   round(balance_score(st.session_state.t2),2),
                     "winner": history[existing].get("winner","") if existing is not None else "",
                 }
                 if existing is not None: history[existing]=new_game
@@ -618,9 +705,10 @@ with tab1:
                 history = sorted(history,key=lambda x:x["date"],reverse=True)
                 st.session_state.game_history=history; save_history_to_gsheets(history)
                 st.success(f"✅ חלוקה נשמרה לתאריך {game_date}")
+                st.markdown("<br><br><br>", unsafe_allow_html=True)
 
 
-# ============================================================
+
 # TAB 2: מאגר שחקנים
 # ============================================================
 with tab2:
