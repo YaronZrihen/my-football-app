@@ -494,6 +494,14 @@ if _qp_player and _qp_pin:
             _ex_roles = safe_split(_pdata.get('roles',''))
             _f_roles = st.pills("תפקידים *", ROLES, selection_mode="multi", default=[r for r in _ex_roles if r in ROLES])
 
+            _ex_primary = str(_pdata.get('primary_role','') or '').strip()
+            if _ex_primary.lower() in ('nan','none'): _ex_primary = ''
+            if _f_roles:
+                _pr_idx = _f_roles.index(_ex_primary) if _ex_primary in _f_roles else 0
+                _f_primary = st.selectbox("⭐ תפקיד עיקרי:", options=_f_roles, index=_pr_idx, key="wa_primary_role")
+            else:
+                _f_primary = ""
+
             _ex_rat = _clean_num_str(_pdata.get('rating',''))
             _f_rate_str = st.pills("ציון עצמי (1-10) *", options=["—"]+[str(i) for i in range(1,11)],
                                     default=_ex_rat if _ex_rat else "—", selection_mode="single", key="wa_self_rate")
@@ -530,7 +538,8 @@ if _qp_player and _qp_pin:
                     _new_entry = {
                         "name": _f_name.strip(), "player_num": _auto_num,
                         "birth_year": _f_year, "rating": _f_rate,
-                        "roles": ",".join(_f_roles), "phone": _f_phone.strip(),
+                        "roles": ",".join(_f_roles), "primary_role": _f_primary,
+                        "phone": _f_phone.strip(),
                         "peer_ratings": json.dumps(_clean_peers, ensure_ascii=False),
                         "active": str(_f_active), "pin": _existing_pin,
                         "win_points": _pdata.get('win_points',0),
@@ -636,14 +645,18 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            # שורת סטטיסטיקה — ממוצע ציון וגיל לשתי הקבוצות יחד
-            if all_combined:
-                combined_avg_score = round(sum(p["score"] for p in all_combined)/len(all_combined), 1)
-                combined_avg_age   = round(sum(p["age"]   for p in all_combined)/len(all_combined), 1)
+            # שורת סטטיסטיקה — ממוצע ציון וגיל לכל קבוצה בנפרד
+            if t1 and t2:
+                avg1_score = round(balance_score(t1), 1)
+                avg2_score = round(balance_score(t2), 1)
+                avg1_age   = round(sum(p["age"] for p in t1)/len(t1), 1)
+                avg2_age   = round(sum(p["age"] for p in t2)/len(t2), 1)
                 st.markdown(
-                    f"<p style='text-align:center;color:#94a3b8;font-size:12px;margin-top:-6px;'>"
-                    f"ממוצע כללי — ציון: <b style='color:#60a5fa;'>{combined_avg_score}</b> | "
-                    f"גיל: <b style='color:#60a5fa;'>{combined_avg_age}</b></p>",
+                    f"<div style='display:flex;justify-content:center;gap:24px;margin-top:-4px;margin-bottom:4px;font-size:12px;'>"
+                    f"<span style='color:#4ade80;'>⚪ לבן — ציון: <b>{avg1_score}</b> | גיל: <b>{avg1_age}</b></span>"
+                    f"<span style='color:#94a3b8;'>|</span>"
+                    f"<span style='color:#f87171;'>⚫ שחור — ציון: <b>{avg2_score}</b> | גיל: <b>{avg2_age}</b></span>"
+                    f"</div>",
                     unsafe_allow_html=True
                 )
 
