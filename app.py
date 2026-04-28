@@ -488,7 +488,7 @@ if _qp_player and _qp_pin:
             _f_name = st.text_input("שם מלא *", value=_pdata['name'])
             _ph_s = clean_phone(_pdata.get('phone',''))
             _f_phone = st.text_input("מספר פלאפון *", value=_ph_s, placeholder="05X-XXXXXXX")
-            _f_year = st.number_input("שנת לידה *", 1950, 2015, int(float(_pdata.get('birth_year',1990) or 1990)))
+            _f_year = st.number_input("שנת לידה *", 1950, 2015, max(1950, min(2015, int(float(str(_pdata.get('birth_year',1990) or 1990))))))
 
             ROLES = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
             _ex_roles = safe_split(_pdata.get('roles',''))
@@ -923,7 +923,12 @@ with tab3:
 
         f_name = st.text_input("שם מלא *", value=p_data['name'] if p_data else "", placeholder="הכנס שם מלא")
         f_phone = st.text_input("מספר פלאפון *", value=clean_phone(p_data.get('phone','')) if p_data else '', placeholder="05X-XXXXXXX")
-        f_year  = st.number_input("שנת לידה *", min_value=1950, max_value=2015, value=int(p_data['birth_year']) if p_data else 1990)
+        def _safe_year(p):
+            try:
+                y = int(float(str(p.get('birth_year', 1990) or 1990)))
+                return max(1950, min(2015, y))
+            except: return 1990
+        f_year  = st.number_input("שנת לידה *", min_value=1950, max_value=2015, value=_safe_year(p_data) if p_data else 1990)
 
         # תפקידים — בתוך הטופס, אחרי שנת לידה
         ROLES_OUT = ["שוער","בלם","מגן ימין","מגן שמאל","קשר אחורי","קשר קדמי","אגף ימין","אגף שמאל","חלוץ"]
